@@ -7,8 +7,8 @@
 
   body {
     font-family: var(--font-sans);
-    color: #0f172a;
-    background-color: #f8fafc;
+    color: #f8fafc;
+    background-color: #07090e;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -25,10 +25,99 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #334155;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #475569;
 }
+
+/* Modern Workspace Dark Theme & Glassmorphism */
+.modern-workspace {
+  background-color: #07090e;
+  color: #f1f5f9;
+}
+
+/* Transform light cards into sleek modern glassmorphic cards */
+.modern-workspace .bg-white {
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(16px);
+  border-color: rgba(51, 65, 85, 0.6) !important;
+}
+
+.modern-workspace .bg-slate-50,
+.modern-workspace .bg-slate-50\/50,
+.modern-workspace .bg-slate-50\/80 {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+}
+
+.modern-workspace .bg-slate-100 {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+}
+
+.modern-workspace .bg-slate-200 {
+  background-color: rgba(51, 65, 85, 0.8) !important;
+}
+
+.modern-workspace .border-slate-100,
+.modern-workspace .border-slate-200,
+.modern-workspace .border-slate-300 {
+  border-color: rgba(51, 65, 85, 0.55) !important;
+}
+
+.modern-workspace .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.modern-workspace .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+.modern-workspace .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.modern-workspace .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+.modern-workspace .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.modern-workspace .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.modern-workspace .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Modern inputs, textareas, and selects */
+.modern-workspace input:not([type="checkbox"]):not([type="radio"]),
+.modern-workspace textarea,
+.modern-workspace select {
+  background-color: rgba(11, 15, 25, 0.9) !important;
+  color: #f8fafc !important;
+  border-color: rgba(71, 85, 105, 0.6) !important;
+}
+
+.modern-workspace input::placeholder,
+.modern-workspace textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Hover effects for list items and table rows */
+.modern-workspace .hover\:bg-slate-50:hover,
+.modern-workspace .hover\:bg-slate-100:hover,
+.modern-workspace .hover\:bg-slate-50\/80:hover {
+  background-color: rgba(51, 65, 85, 0.5) !important;
+}
+
+.modern-workspace .hover\:border-slate-200:hover,
+.modern-workspace .hover\:border-slate-300:hover {
+  border-color: rgba(99, 102, 241, 0.5) !important;
+}
+
+.modern-workspace tr:hover {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+}
+

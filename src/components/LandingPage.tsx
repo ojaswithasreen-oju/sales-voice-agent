@@ -19,71 +19,184 @@ import {
   Calendar,
   Lock,
   Headphones,
-  Check
+  Check,
+  Radio,
+  Clock,
+  Mic,
+  Activity,
+  Globe2,
+  Cpu,
+  BarChart3,
+  ExternalLink,
+  MessageSquare
 } from 'lucide-react';
+import { VoiceOrb3D } from './3d/VoiceOrb3D';
+import { GlobalNetworkGlobe3D } from './3d/GlobalNetworkGlobe3D';
+import { TiltCard3D } from './3d/TiltCard3D';
+import { SoundwaveVisualizer3D } from './3d/SoundwaveVisualizer3D';
 import { playVoiceText, cancelVoice } from '../lib/audioVoice';
 
-interface LandingPageProps {
-  onStartFree: () => void;
-  onSignIn: () => void;
-  onLaunchDemo: () => void;
+export interface LandingPageProps {
+  onStartFree?: () => void;
+  onSignIn?: () => void;
+  onLaunchDemo?: () => void;
+  onOpenSignUp?: () => void;
+  onOpenSignIn?: () => void;
+  onSimulateAudioDemo?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartFree,
   onSignIn,
   onLaunchDemo,
+  onOpenSignUp,
+  onOpenSignIn,
+  onSimulateAudioDemo,
 }) => {
-  // Audio demo player state
-  const [activeSample, setActiveSample] = useState<number>(0);
-  const [isPlayingSample, setIsPlayingSample] = useState<boolean>(false);
+  // Unified action handlers
+  const handleSignUp = onStartFree || onOpenSignUp || onLaunchDemo || (() => {});
+  const handleSignIn = onSignIn || onOpenSignIn || (() => {});
+  const handleDemo = onLaunchDemo || onSimulateAudioDemo || handleSignUp;
+
+  // Audio sample playback state
+  const [activeVoiceIdx, setActiveVoiceIdx] = useState<number>(0);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [billingAnnual, setBillingAnnual] = useState<boolean>(true);
 
+  // 3D Orb visualizer theme
+  const [orbTheme, setOrbTheme] = useState<'indigo' | 'emerald' | 'violet' | 'amber'>('indigo');
+
+  // Interactive In-Browser Call Simulator State
+  const [activeSimPrompt, setActiveSimPrompt] = useState<string>('pricing');
+  const [simSpeaking, setSimSpeaking] = useState<boolean>(false);
+  const [simTranscript, setSimTranscript] = useState<Array<{ role: 'caller' | 'agent'; text: string }>>([
+    {
+      role: 'agent',
+      text: 'Thanks for calling Acme Cloud Platform! This is Sarah, your enterprise sales specialist. How can I assist your team today?',
+    },
+  ]);
+
   // Interactive ROI Calculator State
-  const [monthlyCalls, setMonthlyCalls] = useState<number>(2500);
-  const [avgDealSize, setAvgDealSize] = useState<number>(4500);
-  const [conversionBump, setConversionBump] = useState<number>(18); // percent bump
+  const [monthlyCalls, setMonthlyCalls] = useState<number>(3500);
+  const [avgDealSize, setAvgDealSize] = useState<number>(5500);
+  const [conversionBump, setConversionBump] = useState<number>(22);
 
-  const calculatedLeads = Math.round(monthlyCalls * 0.35);
-  const incrementalDeals = Math.round(calculatedLeads * (conversionBump / 100) * 0.22);
-  const addedRevenue = incrementalDeals * avgDealSize;
-  const hoursSaved = Math.round((monthlyCalls * 4.2) / 60);
+  const calculatedLeads = Math.round(monthlyCalls * 0.38);
+  const incrementalDeals = Math.round(calculatedLeads * (conversionBump / 100) * 0.25);
+  const addedAnnualRevenue = incrementalDeals * avgDealSize * 12;
+  const hoursSaved = Math.round((monthlyCalls * 4.5) / 60);
 
-  const samples = [
+  const audioVoices = [
     {
       title: 'Enterprise Software Qualification',
-      agent: 'Sarah (Natural US Female)',
-      gender: 'female' as const,
+      name: 'Sarah',
+      role: 'Senior Sales Specialist',
       voice: 'nova',
-      duration: '0:38',
+      gender: 'female' as const,
+      duration: '0:34',
+      theme: 'indigo' as const,
       desc: 'Qualifies infrastructure bottlenecks, budget authority, and confirms calendar demo.',
-      quote: '"We offer dedicated VPC peering and horizontally autoscaling workers that process over 50k events/sec. I have an opening this Thursday at 2:00 PM Eastern. Would that work?"',
+      quote:
+        'We offer dedicated VPC peering and horizontally autoscaling workers that process over 50k events per second. I have an opening this Thursday at 2:00 PM Eastern. Would that work for your team?',
     },
     {
       title: 'Commercial Logistics & Freight Quote',
-      agent: 'Maya (Fast & Direct Female)',
-      gender: 'female' as const,
+      name: 'Maya',
+      role: 'Rapid Logistics Broker',
       voice: 'shimmer',
-      duration: '0:29',
+      gender: 'female' as const,
+      duration: '0:28',
+      theme: 'emerald' as const,
       desc: 'Gathers lane zip codes, trailer type, pallet count, and delivers instant spot rates.',
-      quote: '"Chicago to Dallas dry van is quoting at $2,450 all-in for 40,000 lbs. I can lock this carrier rate right now with a confirmed pickup window."',
+      quote:
+        'Chicago to Dallas dry van is quoting at $2,450 all-in for 40,000 lbs. I can lock this carrier rate right now with a confirmed pickup window.',
     },
     {
       title: 'Technical API & Support Inbound',
-      agent: 'Alex (Tech Specialist)',
-      gender: 'male' as const,
+      name: 'Alex',
+      role: 'Cloud Architect Agent',
       voice: 'onyx',
-      duration: '0:32',
+      gender: 'male' as const,
+      duration: '0:31',
+      theme: 'violet' as const,
       desc: 'Explains REST webhook latency guarantees and routes enterprise security questions.',
-      quote: '"Our edge gateway guarantees p99 delivery under 120ms with HMAC SHA-256 signatures. Let me assign our solutions architect to send technical documentation."',
+      quote:
+        'Our edge gateway guarantees p99 delivery under 120ms with HMAC SHA-256 signatures. Let me assign our solutions architect to send technical documentation.',
     },
   ];
 
+  const handleToggleVoice = (idx: number) => {
+    if (activeVoiceIdx === idx && isPlayingAudio) {
+      cancelVoice();
+      setIsPlayingAudio(false);
+    } else {
+      setActiveVoiceIdx(idx);
+      setOrbTheme(audioVoices[idx].theme);
+      setIsPlayingAudio(true);
+      const voice = audioVoices[idx];
+      playVoiceText(voice.quote, {
+        voice: voice.voice,
+        voiceGender: voice.gender,
+        onStart: () => setIsPlayingAudio(true),
+        onEnd: () => setIsPlayingAudio(false),
+        onError: () => setIsPlayingAudio(false),
+      });
+    }
+  };
+
+  // Interactive in-page simulator
+  const simPrompts: Record<string, { label: string; callerText: string; agentResponse: string }> = {
+    pricing: {
+      label: 'Enterprise Pricing & Volume',
+      callerText: 'Can you tell me how much your Enterprise tier costs for 50 sales reps?',
+      agentResponse:
+        'Our Business and Enterprise packages start from $319 per month, with custom volume discounts for 50 seats. This includes unlimited AI voice minutes, dedicated SIP trunks, and a 99.99% SLA. Would you like me to connect you with our Commercial Director?',
+    },
+    hipaa: {
+      label: 'Security & HIPAA / SOC2',
+      callerText: 'Is your telephony stack HIPAA and SOC2 Type II compliant for healthcare data?',
+      agentResponse:
+        'Yes, absolutely. We operate on strictly isolated tenant boundaries with AES-256 encryption at rest, TLS 1.3 in transit, and Business Associate Agreements available for healthcare customers.',
+    },
+    crm: {
+      label: 'HubSpot & Salesforce Sync',
+      callerText: 'How quickly does call transcription and intent sync into our Salesforce CRM?',
+      agentResponse:
+        'In real time! As soon as the call ends, our webhook streams the full timestamped transcript, intent score, extracted budget, and scheduled calendar events directly into your lead record in under 2 seconds.',
+    },
+    human: {
+      label: 'Request Live Human Specialist',
+      callerText: 'I would like to speak to a real human account manager please.',
+      agentResponse:
+        'Certainly! I completely understand. I have generated a real-time handoff summary with your requirements and am transferring you to Marcus on our executive sales team right now.',
+    },
+  };
+
+  const handleSelectSimPrompt = (key: string) => {
+    setActiveSimPrompt(key);
+    const data = simPrompts[key];
+    if (!data) return;
+
+    setSimTranscript([
+      { role: 'caller', text: data.callerText },
+      { role: 'agent', text: data.agentResponse },
+    ]);
+
+    setSimSpeaking(true);
+    playVoiceText(data.agentResponse, {
+      voice: 'nova',
+      voiceGender: 'female',
+      onStart: () => setSimSpeaking(true),
+      onEnd: () => setSimSpeaking(false),
+      onError: () => setSimSpeaking(false),
+    });
+  };
+
   const faqs = [
     {
-      q: 'How does VocalPulse AI sound so human without noticeable delays?',
-      a: 'VocalPulse operates on our proprietary sub-second voice orchestration pipeline. By pairing streaming speech-to-text with fine-tuned conversational LLM reasoning and ultra-low-latency neural audio synthesis, response latency stays below 450 milliseconds—faster than human conversational pauses.',
+      q: 'How does VocalPulse AI sound so human without noticeable latency?',
+      a: 'VocalPulse operates on our proprietary sub-second voice orchestration pipeline. By pairing streaming speech-to-text with fine-tuned conversational LLM reasoning and ultra-low-latency neural audio synthesis, response latency stays below 400 milliseconds—faster than natural human conversational pauses.',
     },
     {
       q: 'Is multi-tenancy strictly isolated for sensitive enterprise customer data?',
@@ -99,295 +212,403 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     },
     {
       q: 'What happens when a caller demands to speak with a human?',
-      a: 'You can configure custom Human Handoff rules. If a caller requests a manager, exhibits frustrated sentiment, or reaches an intricate pricing negotiation, the assistant seamlessly transfers the live call or sends an urgent alert with call summary to your sales team.',
+      a: 'You can configure custom Human Handoff rules. If a caller requests a manager, exhibits frustrated sentiment, or reaches an intricate pricing negotiation, the assistant generates a real-time salesperson brief and seamlessly transfers the live call or alerts your team via Slack.',
     },
   ];
 
-  const handlePlaySample = (idx: number) => {
-    if (activeSample === idx && isPlayingSample) {
-      setIsPlayingSample(false);
-      cancelVoice();
-    } else {
-      setActiveSample(idx);
-      setIsPlayingSample(true);
-      const sample = samples[idx];
-      playVoiceText(String(sample?.quote || '').replace(/"/g, ''), {
-        voice: sample?.voice,
-        voiceGender: sample?.gender,
-        onStart: () => setIsPlayingSample(true),
-        onEnd: () => setIsPlayingSample(false),
-        onError: () => setIsPlayingSample(false),
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Top Announcement Bar */}
-      <div className="bg-slate-900 text-slate-300 text-xs py-2 px-4 border-b border-slate-800 text-center flex items-center justify-center gap-2">
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-          New
-        </span>
-        <span>Sub-400ms Voice Latency &amp; Native HubSpot / Salesforce 2-Way Sync Now Live</span>
-        <button
-          onClick={onLaunchDemo}
-          className="underline text-white font-medium hover:text-indigo-300 ml-1 cursor-pointer"
-        >
-          Explore Live Workspace &rarr;
-        </button>
+    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden font-sans">
+      {/* Dynamic 3D Atmospheric Background Glows */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-gradient-to-br from-indigo-900/25 to-transparent blur-[140px]" />
+        <div className="absolute top-[35%] right-[-15%] w-[55vw] h-[55vw] rounded-full bg-gradient-to-bl from-violet-900/20 via-indigo-950/15 to-transparent blur-[150px]" />
+        <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-gradient-to-tr from-emerald-950/20 to-transparent blur-[160px]" />
       </div>
 
-      {/* Main Navigation Header */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      {/* Top Telephony Live Status Banner */}
+      <div className="relative z-50 bg-slate-950/90 text-slate-300 text-xs py-2 px-4 border-b border-slate-800/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              Global Telephony Live
+            </span>
+            <span className="hidden sm:inline text-slate-400">
+              Sub-400ms neural voice synthesis &amp; 2-way CRM synchronization
+            </span>
+          </div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm shadow-indigo-200">
+            <button
+              onClick={handleDemo}
+              className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <span>Explore Interactive Workspace</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Glassmorphism Sticky Navigation Header */}
+      <header className="sticky top-0 z-40 bg-[#0b0f19]/80 backdrop-blur-xl border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/30">
               <PhoneCall className="w-5 h-5" />
             </div>
             <div>
-              <div className="font-bold text-lg text-slate-900 tracking-tight flex items-center gap-1.5">
-                VocalPulse <span className="text-indigo-600">AI</span>
+              <div className="font-extrabold text-lg text-white tracking-tight flex items-center gap-1.5">
+                VocalPulse <span className="text-indigo-400 font-black">AI</span>
               </div>
-              <div className="text-[10px] text-slate-500 font-medium tracking-wide uppercase">
-                Multi-Tenant Voice Platform
+              <div className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+                Enterprise Voice Telephony
               </div>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#how-it-works" className="hover:text-slate-900 transition-colors">
-              How It Works
+          {/* Nav Links */}
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-slate-300">
+            <a href="#voice-engine" className="hover:text-white transition-colors">
+              3D Voice Engine
             </a>
-            <a href="#audio-samples" className="hover:text-slate-900 transition-colors">
-              Audio Demos
+            <a href="#interactive-studio" className="hover:text-white transition-colors">
+              Live Dial Simulator
             </a>
-            <a href="#roi-calculator" className="hover:text-slate-900 transition-colors">
-              ROI Calculator
+            <a href="#global-network" className="hover:text-white transition-colors">
+              Global SIP Edge
             </a>
-            <a href="#features" className="hover:text-slate-900 transition-colors">
-              Platform
+            <a href="#features-3d" className="hover:text-white transition-colors">
+              Capabilities
             </a>
-            <a href="#pricing" className="hover:text-slate-900 transition-colors">
+            <a href="#roi-model" className="hover:text-white transition-colors">
+              ROI Model
+            </a>
+            <a href="#pricing" className="hover:text-white transition-colors">
               Pricing
             </a>
-            <a href="#faq" className="hover:text-slate-900 transition-colors">
+            <a href="#faq" className="hover:text-white transition-colors">
               FAQ
             </a>
           </nav>
 
+          {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <button
-              onClick={onSignIn}
-              className="text-sm font-semibold text-slate-700 hover:text-slate-900 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              onClick={handleSignIn}
+              className="text-xs font-semibold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl hover:bg-slate-800/60 transition-colors cursor-pointer"
             >
               Sign In
             </button>
             <button
-              onClick={onLaunchDemo}
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg transition-colors cursor-pointer border border-indigo-200"
+              onClick={handleDemo}
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-300 bg-indigo-950/60 hover:bg-indigo-900/60 px-3.5 py-2 rounded-xl transition-all cursor-pointer border border-indigo-700/50 shadow-sm"
             >
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              Live Demo
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Live Demo</span>
             </button>
             <button
-              onClick={onStartFree}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg shadow-sm transition-all hover:shadow cursor-pointer"
+              onClick={handleSignUp}
+              className="inline-flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-4.5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-500/40 transition-all cursor-pointer border border-indigo-400/30"
             >
-              <span>Start Free</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>Start Free Trial</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-20 lg:pt-24 lg:pb-28 bg-gradient-to-b from-white via-slate-50 to-slate-100/70 border-b border-slate-200">
+      {/* Hero Section with Interactive 3D Voice Orb */}
+      <section id="voice-engine" className="relative z-10 pt-16 pb-20 lg:pt-24 lg:pb-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold mb-6">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Next-Gen Autonomous B2B Telephony
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
-              Turn Every Call Into a <br className="hidden sm:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-800">
-                Sales Opportunity.
-              </span>
-            </h1>
-            <p className="mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              Deploy autonomous AI sales voice assistants that answer inbound calls, qualify enterprise leads, overcome objections, book calendar demos, and automatically log transcripts into your CRM.
-            </p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            {/* Hero Left Copy */}
+            <div className="lg:col-span-6 text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-6">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+                <span>Next-Gen Autonomous B2B Telephony</span>
+              </div>
 
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                onClick={onStartFree}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-200 hover:shadow-lg transition-all cursor-pointer text-base"
-              >
-                <span>Start Free Trial</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onLaunchDemo}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 shadow-sm hover:border-slate-400 transition-all cursor-pointer text-base"
-              >
-                <Play className="w-4 h-4 text-indigo-600 fill-indigo-600" />
-                <span>Explore Live Workspace</span>
-              </button>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
+                Autonomous AI Voice Agents That{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400">
+                  Close Enterprise Deals.
+                </span>
+              </h1>
+
+              <p className="mt-6 text-base sm:text-lg text-slate-300 leading-relaxed max-w-xl mx-auto lg:mx-0">
+                Deploy sub-400ms neural telephony agents that answer inbound calls, qualify enterprise buyers, overcome objections, book calendar demos, and automatically log transcripts into Salesforce and HubSpot.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                <button
+                  onClick={handleSignUp}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-500/50 transition-all cursor-pointer text-sm"
+                >
+                  <span>Deploy Voice Agent Free</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleDemo}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 shadow-md hover:border-slate-600 transition-all cursor-pointer text-sm"
+                >
+                  <Play className="w-4 h-4 text-indigo-400 fill-indigo-400" />
+                  <span>Launch Live Workspace</span>
+                </button>
+              </div>
+
+              {/* Trust Checkmarks */}
+              <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-xs font-semibold text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>Sub-400ms neural latency</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>Strict tenant isolation</span>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs font-medium text-slate-500">
-              <div className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>No credit card required</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>Isolated multi-tenant workspaces</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span>5-minute turnkey onboarding</span>
-              </div>
+            {/* Hero Right: Interactive 3D Voice Orb Stage */}
+            <div className="lg:col-span-6 relative">
+              <TiltCard3D
+                maxTilt={10}
+                depth={25}
+                glowColor="rgba(99, 102, 241, 0.25)"
+                className="bg-slate-900/80 rounded-3xl border border-slate-700/80 shadow-2xl p-6 relative overflow-hidden backdrop-blur-md"
+              >
+                {/* 3D Voice Orb Canvas */}
+                <div className="w-full h-[380px] sm:h-[440px] relative">
+                  <VoiceOrb3D
+                    isPlaying={isPlayingAudio || simSpeaking}
+                    intensity={isPlayingAudio || simSpeaking ? 1.6 : 0.8}
+                    themeColor={orbTheme}
+                    className="w-full h-full"
+                  />
+                </div>
+
+                {/* Audio Sample Controller embedded in 3D Stage */}
+                <div className="mt-4 pt-4 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+                      Audition Neural Personas Live
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                      24kHz PCM
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {audioVoices.map((voice, idx) => {
+                      const isActive = activeVoiceIdx === idx;
+                      return (
+                        <button
+                          key={voice.name}
+                          onClick={() => handleToggleVoice(idx)}
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                            isActive
+                              ? 'bg-indigo-950/70 border-indigo-500/80 text-white shadow-lg ring-1 ring-indigo-500/40'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-white">{voice.name}</span>
+                            {isActive && isPlayingAudio ? (
+                              <Pause className="w-3.5 h-3.5 text-indigo-400" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">{voice.role}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </TiltCard3D>
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Hero Interactive Interactive Preview Card */}
-          <div className="mt-14 max-w-5xl mx-auto">
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xl overflow-hidden">
+      {/* Social Proof Logos Bar */}
+      <section className="py-8 bg-slate-950/80 border-y border-slate-800/80 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-xs font-bold uppercase tracking-widest text-slate-500 mb-6">
+            Empowering modern high-growth B2B SaaS, Logistics, Healthcare &amp; Enterprise Sales Teams
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-14 opacity-75 grayscale hover:grayscale-0 transition-all font-black text-slate-400 tracking-wider text-sm">
+            <span className="hover:text-indigo-400 transition-colors">VANGUARD LOGIX</span>
+            <span className="hover:text-indigo-400 transition-colors">NOVA FINANCIAL</span>
+            <span className="hover:text-indigo-400 transition-colors">BOSTON DIAGNOSTICS</span>
+            <span className="hover:text-indigo-400 transition-colors">ZENITH FREIGHT</span>
+            <span className="hover:text-indigo-400 transition-colors">CLOUDSCALE HQ</span>
+            <span className="hover:text-indigo-400 transition-colors">APEX ANALYTICS</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive In-Browser Live Dial Simulator */}
+      <section id="interactive-studio" className="py-24 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
+              <Mic className="w-4 h-4 text-indigo-400 animate-pulse" />
+              <span>Interactive Telephony Studio</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Test Inbound Scenarios In Real Time
+            </h2>
+            <p className="mt-3 text-slate-400 text-sm sm:text-base">
+              Click any inbound caller question to trigger the AI sales persona. Listen to the sub-second response, objection resolution, and autonomous CRM classification.
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-slate-900/90 rounded-3xl border border-slate-700/80 shadow-2xl overflow-hidden backdrop-blur-md">
               {/* Window Header */}
-              <div className="bg-slate-900 px-4 py-3 flex items-center justify-between border-b border-slate-800">
+              <div className="bg-slate-950 px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-rose-500/80" />
                   <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                   <span className="text-xs font-mono text-slate-400 ml-2">
-                    app.vocalpulse.ai/workspace/acme-cloud
+                    telephony://vocalpulse-gateway.live/sim-session
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Telephony Live (+1 415 890-2341)
+                    SIP Session Active (+1 415 890-2341)
                   </span>
                 </div>
               </div>
 
-              {/* Window Body Simulation */}
-              <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-50/50">
-                {/* Left: Active Live Call Visualizer */}
-                <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
-                          SV
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-slate-900">
-                            Sarah &bull; Enterprise Sales Voice AI
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Inbound Call with Marcus Vance (VP Eng, Vanguard Logix)
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Active &bull; 02:44
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Sound Waves Animation */}
-                    <div className="my-5 py-4 bg-slate-900 rounded-lg px-4 flex items-center justify-between text-white">
-                      <div className="flex items-center gap-3">
-                        <Volume2 className="w-5 h-5 text-indigo-400 animate-pulse" />
-                        <span className="text-xs font-mono text-slate-300">
-                          Audio Stream: 24kHz / 16-bit PCM (Sub-400ms)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[18, 36, 12, 45, 24, 60, 32, 50, 16, 40, 28, 55, 22].map((h, i) => (
-                          <div
-                            key={i}
-                            className="w-1 bg-indigo-400 rounded-full transition-all duration-300"
-                            style={{ height: `${h}px` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Dialogue Transcript Snippet */}
-                    <div className="space-y-2.5 text-xs">
-                      <div className="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 text-indigo-950">
-                        <span className="font-bold text-indigo-700">AI Assistant: </span>
-                        "We guarantee 99.99% uptime SLA with dedicated VPC peering. Can I confirm your team size and timeline for this rollout?"
-                      </div>
-                      <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800">
-                        <span className="font-bold text-slate-700">Marcus Vance: </span>
-                        "We run 500 concurrent data pipelines. We need SOC2 and are ready to deploy before the end of Q1."
-                      </div>
-                    </div>
+              {/* Window Content */}
+              <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left: Caller Prompt Selector */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Select Caller Inquiry Scenario:
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Database className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Grounded in: <b>Acme Enterprise Playbook 2026.docx</b></span>
+                  <div className="space-y-2.5">
+                    {Object.entries(simPrompts).map(([key, data]) => {
+                      const isSelected = activeSimPrompt === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => handleSelectSimPrompt(key)}
+                          className={`w-full p-3.5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-3 ${
+                            isSelected
+                              ? 'bg-indigo-950/80 border-indigo-500 text-white shadow-md ring-1 ring-indigo-500/50'
+                              : 'bg-slate-950/50 border-slate-800 text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                          }`}
+                        >
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                              isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold">{data.label}</div>
+                            <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                              "{data.callerText}"
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 3D Soundwave inside Simulator */}
+                  <div className="mt-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                    <div className="text-[11px] font-mono text-slate-400 mb-2 flex items-center justify-between">
+                      <span>3D Frequency Spectrum</span>
+                      <span className="text-indigo-400">{simSpeaking ? 'Modulating...' : 'Standby'}</span>
                     </div>
-                    <button
-                      onClick={onLaunchDemo}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                    >
-                      View Full Call Record &rarr;
-                    </button>
+                    <div className="h-24">
+                      <SoundwaveVisualizer3D isPlaying={simSpeaking} barCount={36} color="#6366f1" />
+                    </div>
                   </div>
                 </div>
 
-                {/* Right: Real-time Sales Intelligence Feed */}
-                <div className="lg:col-span-5 flex flex-col gap-4">
-                  <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Real-Time Qualification</span>
-                      <span className="text-indigo-600 font-bold">95/100</span>
+                {/* Right: Live Dialogue & Sales Intelligence */}
+                <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+                  {/* Transcript Viewport */}
+                  <div className="bg-slate-950/80 rounded-2xl p-5 border border-slate-800/90 space-y-3 min-h-[220px]">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center justify-between">
+                      <span>Live Speech-to-Text &amp; Autonomous Output</span>
+                      <span className="text-[10px] font-mono text-slate-500">Latency: 388ms</span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-3">
-                      <div className="bg-gradient-to-r from-emerald-500 to-indigo-600 h-full w-[95%]" />
+
+                    {simTranscript.map((turn, i) => (
+                      <div
+                        key={i}
+                        className={`p-3.5 rounded-xl text-xs leading-relaxed ${
+                          turn.role === 'agent'
+                            ? 'bg-indigo-950/50 border border-indigo-800/40 text-indigo-200'
+                            : 'bg-slate-900 border border-slate-800 text-slate-200'
+                        }`}
+                      >
+                        <div className="font-bold mb-1 flex items-center gap-1.5">
+                          {turn.role === 'agent' ? (
+                            <>
+                              <Bot className="w-3.5 h-3.5 text-indigo-400" />
+                              <span className="text-indigo-300">Sarah (VocalPulse AI):</span>
+                            </>
+                          ) : (
+                            <>
+                              <Users className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="text-slate-400">Caller:</span>
+                            </>
+                          )}
+                        </div>
+                        <p>{turn.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Real-time Qualification Card */}
+                  <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800/80 grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Intent Readiness</div>
+                      <div className="text-lg font-black text-emerald-400 font-mono mt-0.5">96 / 100</div>
                     </div>
-                    <div className="space-y-1.5 text-xs text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span>Budget Authority</span>
-                        <span className="font-semibold text-emerald-600">Confirmed (VP Level)</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Decision Timeline</span>
-                        <span className="font-semibold text-slate-900">&lt; 3 Weeks</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Interested Tier</span>
-                        <span className="font-semibold text-indigo-600">Enterprise Suite ($30k+)</span>
-                      </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Objection Status</div>
+                      <div className="text-lg font-black text-indigo-400 font-mono mt-0.5">Resolved</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-semibold">CRM Action</div>
+                      <div className="text-lg font-black text-violet-400 font-mono mt-0.5">Auto-Synced</div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex-1">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                      Autonomous Actions Executed
-                    </div>
-                    <ul className="space-y-2 text-xs text-slate-700">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                        <span>Created high-priority deal in <b>HubSpot CRM</b></span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                        <span>Booked calendar demo: <b>Thursday at 2:00 PM EST</b></span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                        <span>Dispatched Slack alert to <b>#sales-leads</b> channel</span>
-                      </li>
-                    </ul>
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      onClick={() => handleSelectSimPrompt(activeSimPrompt)}
+                      className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      <span>Replay Audio Dialogue</span>
+                    </button>
+                    <button
+                      onClick={handleDemo}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl cursor-pointer transition-all shadow-md shadow-indigo-600/30"
+                    >
+                      <span>Open Studio in Workspace</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -396,265 +617,308 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* Social Proof / Trust Badges */}
-      <section className="py-10 bg-white border-b border-slate-200">
+      {/* Interactive 3D Global SIP Edge Network Section */}
+      <section id="global-network" className="py-24 bg-slate-950/60 border-y border-slate-800/80 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Trusted by modern high-growth B2B SaaS, Logistics, Healthcare &amp; Financial Enterprises
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-8 sm:gap-12 opacity-70 grayscale hover:grayscale-0 transition-all text-slate-600 font-bold text-sm">
-            <span className="tracking-tight">VANGUARD LOGIX</span>
-            <span className="tracking-tight">NOVA FINANCIAL</span>
-            <span className="tracking-tight">BOSTON DIAGNOSTICS</span>
-            <span className="tracking-tight">ZENITH FREIGHT</span>
-            <span className="tracking-tight">CLOUDSCALE HQ</span>
-            <span className="tracking-tight">APEX ANALYTICS</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            {/* Left Copy */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                <Globe2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Tier-1 Global Telephony Infrastructure</span>
+              </div>
+
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                Global Edge Pops Delivering Sub-Second Packet Routing.
+              </h2>
+
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Our distributed SIP network operates across 8 tier-1 data centers worldwide. With direct carrier interconnects via Level 3, Lumen, Telnyx, and Tata Communications, your callers experience zero latency, jitter, or audio clipping.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                  <div className="text-2xl font-black text-emerald-400 font-mono">&lt; 18ms</div>
+                  <div className="text-xs text-slate-400 mt-1">Average Edge Jitter</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                  <div className="text-2xl font-black text-indigo-400 font-mono">99.99%</div>
+                  <div className="text-xs text-slate-400 mt-1">Uptime SLA Contract</div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={handleSignUp}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                >
+                  <span>Provision Global Number Now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Right: 3D Globe Interactive Canvas */}
+            <div className="lg:col-span-7">
+              <TiltCard3D
+                maxTilt={8}
+                depth={20}
+                glowColor="rgba(16, 185, 129, 0.2)"
+                className="bg-slate-900/80 rounded-3xl border border-slate-700/80 shadow-2xl p-6 relative overflow-hidden backdrop-blur-md"
+              >
+                <div className="w-full h-[380px] sm:h-[460px]">
+                  <GlobalNetworkGlobe3D className="w-full h-full" />
+                </div>
+              </TiltCard3D>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Interactive Audio Demos Section */}
-      <section id="audio-samples" className="py-20 bg-slate-50 border-b border-slate-200">
+      {/* 3D Bento Matrix: Enterprise Capabilities */}
+      <section id="features-3d" className="py-24 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
-              Conversational Voice Quality
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">
+              Autonomous Sales Architecture
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Listen to AI Sales Voice Assistants in Action
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Enterprise Voice Capabilities
             </h2>
-            <p className="mt-3 text-slate-600 text-sm sm:text-base">
-              Experience the natural cadence, objection handling, and consultative tone tailored to different industry verticals.
+            <p className="mt-3 text-slate-400 text-sm sm:text-base">
+              Engineered with mathematical precision to replace lost leads with autonomous calendar bookings and instant sales intelligence.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {samples.map((sample, idx) => (
-              <div
-                key={idx}
-                className={`rounded-2xl p-6 border transition-all ${
-                  activeSample === idx
-                    ? 'bg-white border-indigo-300 shadow-md ring-2 ring-indigo-500/10'
-                    : 'bg-white/80 border-slate-200 hover:border-slate-300 hover:bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-                    {sample.agent}
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">{sample.duration}</span>
+            {/* Bento Card 1 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(99, 102, 241, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center mb-5">
+                    <Zap className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Sub-400ms Voice Orchestration</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Streaming neural synthesis pipeline eliminates the robotic silence between caller questions and AI responses. The assistant sounds immediate, attentive, and natural.
+                  </p>
                 </div>
-
-                <h3 className="text-base font-bold text-slate-900 mb-2">{sample.title}</h3>
-                <p className="text-xs text-slate-500 mb-4">{sample.desc}</p>
-
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs italic text-slate-700 mb-5 leading-relaxed">
-                  {sample.quote}
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-indigo-300">
+                  <span>Latency Benchmark</span>
+                  <span className="font-bold text-emerald-400">388ms Avg</span>
                 </div>
-
-                <button
-                  onClick={() => handlePlaySample(idx)}
-                  className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors ${
-                    activeSample === idx && isPlayingSample
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-500'
-                  }`}
-                >
-                  {activeSample === idx && isPlayingSample ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5" />
-                      <span>Pause Audio Sample</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Play Audio Sample</span>
-                    </>
-                  )}
-                </button>
               </div>
-            ))}
-          </div>
+            </TiltCard3D>
 
-          <div className="mt-10 text-center">
-            <button
-              onClick={onLaunchDemo}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-            >
-              <span>Test with your own voice in the Live Studio</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {/* Bento Card 2 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(16, 185, 129, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mb-5">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Smart Human Handoff 2.0</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Detects buying intent spikes, pricing negotiations, or frustrated sentiment. Generates a comprehensive salesperson brief before transferring the live caller.
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-emerald-300">
+                  <span>Handoff Briefing</span>
+                  <span className="font-bold text-white">Instant Sync</span>
+                </div>
+              </div>
+            </TiltCard3D>
+
+            {/* Bento Card 3 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(168, 85, 247, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-violet-600/20 border border-violet-500/40 text-violet-400 flex items-center justify-center mb-5">
+                    <Globe2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Multilingual Telephony</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Automatically identifies customer language and regional dialect in real time (English, Spanish, French, German, Japanese, and more) without manual routing menus.
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-violet-300">
+                  <span>Languages Supported</span>
+                  <span className="font-bold text-white">12+ Dialects</span>
+                </div>
+              </div>
+            </TiltCard3D>
+
+            {/* Bento Card 4 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(245, 158, 11, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-amber-600/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mb-5">
+                    <Layers className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Autonomous 2-Way CRM Sync</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Direct integration with HubSpot, Salesforce, Pipedrive, and Slack. Automatically creates deals, logs call recordings, and schedules Google / Outlook calendar invites.
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-amber-300">
+                  <span>CRM Webhooks</span>
+                  <span className="font-bold text-white">&lt; 2s Delivery</span>
+                </div>
+              </div>
+            </TiltCard3D>
+
+            {/* Bento Card 5 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(56, 189, 248, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-sky-600/20 border border-sky-500/40 text-sky-400 flex items-center justify-center mb-5">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Multi-Tenant Data Isolation</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Strict logical database boundaries for every organization. Enforces tenant IDs on every single query. SOC2 Type II, HIPAA, and GDPR compliant architectures.
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-sky-300">
+                  <span>Tenant Isolation</span>
+                  <span className="font-bold text-emerald-400">100% Guaranteed</span>
+                </div>
+              </div>
+            </TiltCard3D>
+
+            {/* Bento Card 6 */}
+            <TiltCard3D maxTilt={10} depth={20} glowColor="rgba(236, 72, 153, 0.2)">
+              <div className="h-full p-7 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-pink-600/20 border border-pink-500/40 text-pink-400 flex items-center justify-center mb-5">
+                    <Cpu className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Self-Learning AI Improvement</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                    Monitors every call transcript to discover knowledge base gaps and unaddressed customer questions. Generates suggested answers for one-click manager approval.
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-pink-300">
+                  <span>Knowledge Evolution</span>
+                  <span className="font-bold text-white">Automated</span>
+                </div>
+              </div>
+            </TiltCard3D>
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
-              Autonomous Inbound &amp; Outbound Architecture
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              From Inbound Ring to Closed Deal in 4 Steps
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 relative">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                01
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Connect Phone Number</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Choose a local or toll-free number from VocalPulse or route calls from your Twilio/Telnyx or existing PBX carrier.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 relative">
-              <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                02
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Upload Knowledge &amp; Products</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Ingest PDF brochures, pricing sheets, sales guidelines, and FAQs. The agent cites only verified company facts.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 relative">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                03
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Autonomous Voice Discovery</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                The AI answers in sub-second latency, asks custom qualification questions, resolves objections, and pitches your offer.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 relative">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm mb-4 shadow-sm">
-                04
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Instant CRM &amp; Calendar Booking</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Transcripts, intent scores, and scheduled demo calendar invites sync into HubSpot, Salesforce, and your sales team.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Interactive ROI Calculator Section */}
-      <section id="roi-calculator" className="py-20 bg-slate-900 text-white border-b border-slate-800">
+      {/* Interactive 3D ROI & Expansion Calculator */}
+      <section id="roi-model" className="py-24 bg-slate-950/80 border-y border-slate-800/80 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
-              ROI &amp; Revenue Modeling
+            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">
+              ROI &amp; Revenue Projection
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Calculate Your Revenue Expansion
+              Model Your Pipeline Expansion
             </h2>
             <p className="mt-3 text-slate-400 text-sm sm:text-base">
-              See how capturing 100% of inbound calls and qualifying buyers in real time directly impacts your pipeline.
+              See how capturing 100% of inbound calls and qualifying buyers instantly impacts your annualized revenue.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-slate-800/80 rounded-2xl p-6 sm:p-10 border border-slate-700 shadow-2xl">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-slate-900/90 rounded-3xl p-6 sm:p-10 border border-slate-700/80 shadow-2xl backdrop-blur-md">
             {/* Sliders Form */}
             <div className="lg:col-span-6 space-y-6">
               <div>
                 <div className="flex justify-between text-sm font-semibold mb-2">
                   <label className="text-slate-300">Monthly Inbound Call Volume</label>
-                  <span className="text-indigo-400 font-mono">{monthlyCalls.toLocaleString()} calls</span>
+                  <span className="text-indigo-400 font-mono font-bold">{monthlyCalls.toLocaleString()} calls</span>
                 </div>
                 <input
                   type="range"
                   min="500"
-                  max="15000"
-                  step="250"
+                  max="20000"
+                  step="500"
                   value={monthlyCalls}
                   onChange={(e) => setMonthlyCalls(Number(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
+                  className="w-full accent-indigo-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
                 />
                 <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                   <span>500 calls</span>
-                  <span>15,000 calls</span>
+                  <span>20,000 calls</span>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between text-sm font-semibold mb-2">
-                  <label className="text-slate-300">Average Closed Deal Value</label>
-                  <span className="text-indigo-400 font-mono">${avgDealSize.toLocaleString()}</span>
+                  <label className="text-slate-300">Average Closed Contract Value</label>
+                  <span className="text-indigo-400 font-mono font-bold">${avgDealSize.toLocaleString()}</span>
                 </div>
                 <input
                   type="range"
                   min="1000"
-                  max="30000"
+                  max="50000"
                   step="500"
                   value={avgDealSize}
                   onChange={(e) => setAvgDealSize(Number(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
+                  className="w-full accent-indigo-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
                 />
                 <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                   <span>$1,000</span>
-                  <span>$30,000</span>
+                  <span>$50,000</span>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between text-sm font-semibold mb-2">
-                  <label className="text-slate-300">Speed-to-Lead Conversion Bump</label>
-                  <span className="text-indigo-400 font-mono">+{conversionBump}%</span>
+                  <label className="text-slate-300">Speed-to-Lead Qualification Boost</label>
+                  <span className="text-emerald-400 font-mono font-bold">+{conversionBump}%</span>
                 </div>
                 <input
                   type="range"
                   min="5"
-                  max="40"
+                  max="45"
                   step="1"
                   value={conversionBump}
                   onChange={(e) => setConversionBump(Number(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
+                  className="w-full accent-emerald-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
                 />
                 <div className="flex justify-between text-[11px] text-slate-500 mt-1">
                   <span>+5%</span>
-                  <span>+40%</span>
+                  <span>+45%</span>
                 </div>
               </div>
             </div>
 
-            {/* Calculated Output Cards */}
-            <div className="lg:col-span-6 bg-slate-900/90 rounded-xl p-6 border border-slate-700/80 flex flex-col justify-between">
+            {/* Calculated Output Card */}
+            <div className="lg:col-span-6 bg-slate-950 rounded-2xl p-7 border border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="text-xs uppercase font-bold text-slate-400 mb-1">
+                <div className="text-xs uppercase font-bold text-slate-400 mb-1 tracking-wider">
                   Projected Additional Annualized Revenue
                 </div>
-                <div className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-400 font-mono my-2">
-                  +${(addedRevenue * 12).toLocaleString()}
+                <div className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 font-mono my-3">
+                  +${addedAnnualRevenue.toLocaleString()}
                 </div>
-                <p className="text-xs text-slate-400">
-                  Based on capturing missed calls instantly and accelerating speed-to-qualification.
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Calculated by capturing missed calls instantly, eliminating phone-tag delays, and automatically booking executive demos.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-800">
                 <div>
                   <div className="text-xs text-slate-400">Monthly Rep Hours Saved</div>
-                  <div className="text-2xl font-bold text-white font-mono mt-0.5">
+                  <div className="text-2xl font-black text-white font-mono mt-0.5">
                     {hoursSaved} hrs
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Extra Closed Deals / Month</div>
-                  <div className="text-2xl font-bold text-indigo-400 font-mono mt-0.5">
+                  <div className="text-2xl font-black text-indigo-400 font-mono mt-0.5">
                     +{incrementalDeals} deals
                   </div>
                 </div>
               </div>
 
               <button
-                onClick={onStartFree}
-                className="mt-6 w-full py-3 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                onClick={handleSignUp}
+                className="mt-6 w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/30 transition-all cursor-pointer"
               >
                 Deploy Voice Agent &amp; Capture This Pipeline
               </button>
@@ -663,87 +927,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* Enterprise Multi-Tenancy & Security Section */}
-      <section id="features" className="py-20 bg-white border-b border-slate-200">
+      {/* Transparent Pricing Section */}
+      <section id="pricing" className="py-24 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
-              Enterprise Infrastructure
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Engineered for Scale, Privacy, and Isolation
-            </h2>
-            <p className="mt-3 text-slate-600 text-sm sm:text-base">
-              Built from the ground up as a true multi-tenant SaaS architecture with ironclad logical tenant segregation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-4">
-                <Lock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Strict Tenant Isolation</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                All database queries enforce tenant IDs. Cross-tenant access is impossible at both the API and database layer. Your knowledge base and customer recordings are 100% private.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
-                <Shield className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Role-Based Governance (RBAC)</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Enforce granular privileges across Owner, Admin, Sales Manager, Sales Rep, and Viewer roles with comprehensive timestamped audit logs.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center mb-4">
-                <Zap className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-2">Sub-Second Telephony Edge</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Low-latency SIP trunking connected directly to tier-1 global carriers guarantees immediate pickup without latency or choppy audio.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-slate-50 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">
               Transparent SaaS Pricing
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-              Predictable Plans That Scale With Your Pipeline
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Predictable Plans That Scale With Your Growth
             </h2>
-            <p className="mt-3 text-slate-600 text-sm">
-              All plans include complete tenant isolation, real-time call transcription, and audio recordings.
+            <p className="mt-3 text-slate-400 text-sm">
+              All plans include complete multi-tenant isolation, real-time transcription, and live recordings.
             </p>
 
             {/* Monthly / Annual Toggle */}
-            <div className="mt-6 inline-flex items-center gap-3 p-1 rounded-xl bg-slate-200 text-xs font-semibold">
+            <div className="mt-6 inline-flex items-center gap-3 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-semibold">
               <button
                 onClick={() => setBillingAnnual(false)}
-                className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
-                  !billingAnnual ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                className={`px-4 py-2 rounded-xl cursor-pointer transition-all ${
+                  !billingAnnual ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setBillingAnnual(true)}
-                className={`px-3 py-1.5 rounded-lg cursor-pointer transition-all flex items-center gap-1.5 ${
-                  billingAnnual ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                className={`px-4 py-2 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 ${
+                  billingAnnual ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <span>Annually</span>
-                <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px]">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30">
                   Save 20%
                 </span>
               </button>
@@ -752,169 +967,165 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-stretch">
             {/* Free Trial */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between">
+            <div className="bg-slate-900/80 rounded-3xl p-6 border border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900">Free Trial</div>
-                <div className="text-xs text-slate-500 mt-1">Test the voice assistant</div>
+                <div className="text-sm font-bold text-white">Free Trial</div>
+                <div className="text-xs text-slate-400 mt-1">Experience the voice assistant</div>
                 <div className="mt-4 mb-6">
-                  <span className="text-3xl font-extrabold text-slate-900">$0</span>
-                  <span className="text-xs text-slate-500"> / 14 days</span>
+                  <span className="text-3xl font-black text-white">$0</span>
+                  <span className="text-xs text-slate-400"> / 14 days</span>
                 </div>
-                <ul className="space-y-2.5 text-xs text-slate-600">
+                <ul className="space-y-2.5 text-xs text-slate-300">
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>500 voice minutes</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>1 AI voice assistant</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>1 local phone number</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Standard transcription</span>
                   </li>
                 </ul>
               </div>
               <button
-                onClick={onStartFree}
-                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
+                onClick={handleSignUp}
+                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Start Free Trial
               </button>
             </div>
 
             {/* Pro */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between">
+            <div className="bg-slate-900/80 rounded-3xl p-6 border border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900">Pro Sales</div>
-                <div className="text-xs text-slate-500 mt-1">For growing sales teams</div>
+                <div className="text-sm font-bold text-white">Pro Sales</div>
+                <div className="text-xs text-slate-400 mt-1">For growing sales teams</div>
                 <div className="mt-4 mb-6">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                  <span className="text-3xl font-black text-white">
                     ${billingAnnual ? '119' : '149'}
                   </span>
-                  <span className="text-xs text-slate-500"> / month</span>
+                  <span className="text-xs text-slate-400"> / month</span>
                 </div>
-                <ul className="space-y-2.5 text-xs text-slate-600">
+                <ul className="space-y-2.5 text-xs text-slate-300">
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>2,000 voice minutes</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>5 AI voice assistants</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>3 phone numbers</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>CRM &amp; Calendar sync</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>AI Sales Intelligence</span>
                   </li>
                 </ul>
               </div>
               <button
-                onClick={onStartFree}
-                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+                onClick={handleSignUp}
+                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-indigo-950/60 text-indigo-300 hover:bg-indigo-900/60 border border-indigo-700/60 transition-colors cursor-pointer"
               >
                 Get Started
               </button>
             </div>
 
             {/* Business (Popular) */}
-            <div className="bg-white rounded-2xl p-6 border-2 border-indigo-600 relative shadow-lg flex flex-col justify-between">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider">
+            <div className="bg-slate-900/90 rounded-3xl p-6 border-2 border-indigo-500 relative shadow-2xl flex flex-col justify-between">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg">
                 Most Popular
               </div>
               <div>
-                <div className="text-sm font-bold text-slate-900">Business Growth</div>
-                <div className="text-xs text-slate-500 mt-1">High-volume sales qualification</div>
+                <div className="text-sm font-bold text-white">Business Growth</div>
+                <div className="text-xs text-slate-400 mt-1">High-volume sales qualification</div>
                 <div className="mt-4 mb-6">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                  <span className="text-3xl font-black text-white">
                     ${billingAnnual ? '319' : '399'}
                   </span>
-                  <span className="text-xs text-slate-500"> / month</span>
+                  <span className="text-xs text-slate-400"> / month</span>
                 </div>
-                <ul className="space-y-2.5 text-xs text-slate-600">
+                <ul className="space-y-2.5 text-xs text-slate-300">
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>6,000 voice minutes</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>15 AI assistants</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>10 phone numbers</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Full HubSpot &amp; Salesforce 2-way sync</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Custom vector knowledge ingestion</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span>RBAC &amp; team management</span>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>Smart Human Handoff 2.0</span>
                   </li>
                 </ul>
               </div>
               <button
-                onClick={onStartFree}
-                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer shadow-sm"
+                onClick={handleSignUp}
+                className="mt-6 w-full py-2.5 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer shadow-lg shadow-indigo-600/30"
               >
                 Deploy Business Plan
               </button>
             </div>
 
             {/* Enterprise */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between">
+            <div className="bg-slate-900/80 rounded-3xl p-6 border border-slate-800 flex flex-col justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900">Enterprise Scale</div>
-                <div className="text-xs text-slate-500 mt-1">Custom infrastructure &amp; SLA</div>
+                <div className="text-sm font-bold text-white">Enterprise Scale</div>
+                <div className="text-xs text-slate-400 mt-1">Custom infrastructure &amp; SLA</div>
                 <div className="mt-4 mb-6">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                  <span className="text-3xl font-black text-white">
                     ${billingAnnual ? '799' : '999'}
                   </span>
-                  <span className="text-xs text-slate-500"> / month</span>
+                  <span className="text-xs text-slate-400"> / month</span>
                 </div>
-                <ul className="space-y-2.5 text-xs text-slate-600">
+                <ul className="space-y-2.5 text-xs text-slate-300">
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>25,000+ voice minutes</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Unlimited AI assistants</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Custom SIP trunking (BYOC)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span>Fine-tuned company voice model</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span>Dedicated VPC &amp; 99.99% SLA</span>
                   </li>
                 </ul>
               </div>
               <button
-                onClick={onStartFree}
-                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                onClick={handleSignUp}
+                className="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs bg-slate-800 text-white hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Contact Sales
               </button>
@@ -923,11 +1134,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section id="faq" className="py-20 bg-white border-b border-slate-200">
+      {/* Frequently Asked Questions */}
+      <section id="faq" className="py-24 bg-slate-950/60 border-y border-slate-800/80 relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">
               Frequently Asked Questions
             </h2>
           </div>
@@ -936,21 +1147,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {faqs.map((faq, idx) => (
               <div
                 key={idx}
-                className="rounded-xl border border-slate-200 overflow-hidden transition-colors"
+                className="rounded-2xl border border-slate-800/90 bg-slate-900/70 overflow-hidden transition-all"
               >
                 <button
                   onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                  className="w-full text-left px-5 py-4 bg-slate-50 hover:bg-slate-100/80 flex items-center justify-between font-semibold text-sm text-slate-900 cursor-pointer"
+                  className="w-full text-left px-6 py-4.5 flex items-center justify-between font-bold text-sm text-white hover:text-indigo-300 cursor-pointer"
                 >
                   <span>{faq.q}</span>
                   {activeFaq === idx ? (
-                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                    <ChevronUp className="w-4 h-4 text-indigo-400" />
                   ) : (
                     <ChevronDown className="w-4 h-4 text-slate-500" />
                   )}
                 </button>
                 {activeFaq === idx && (
-                  <div className="px-5 py-4 bg-white text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-200">
+                  <div className="px-6 py-4 bg-slate-950/60 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/80">
                     {faq.a}
                   </div>
                 )}
@@ -960,47 +1171,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* Final CTA Banner */}
-      <section className="py-16 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white">
+      {/* Final 3D CTA Banner */}
+      <section className="py-20 relative z-10 overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Ready to deploy your first AI Sales Voice Assistant?
-          </h2>
-          <p className="mt-3 text-slate-400 text-sm max-w-xl mx-auto">
-            Create an isolated workspace, upload company knowledge, and test live calls in less than 5 minutes.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={onStartFree}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg transition-all cursor-pointer"
-            >
-              Start Free Trial Now &rarr;
-            </button>
-            <button
-              onClick={onLaunchDemo}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer"
-            >
-              Open Interactive Demo Workspace
-            </button>
+          <div className="p-10 sm:p-14 rounded-3xl bg-gradient-to-br from-indigo-950/90 via-slate-900 to-slate-950 border border-indigo-500/30 shadow-2xl relative overflow-hidden backdrop-blur-md">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Ready to deploy your first autonomous AI Sales Voice Assistant?
+            </h2>
+            <p className="mt-3 text-slate-300 text-sm max-w-xl mx-auto leading-relaxed">
+              Create an isolated tenant workspace, ingest company knowledge, and test live calls in less than 5 minutes.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={handleSignUp}
+                className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xl shadow-indigo-600/40 transition-all cursor-pointer"
+              >
+                Start Free Trial Now &rarr;
+              </button>
+              <button
+                onClick={handleDemo}
+                className="w-full sm:w-auto px-7 py-4 rounded-xl font-semibold text-sm bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700 transition-all cursor-pointer"
+              >
+                Launch Live Demo Workspace
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-10 bg-slate-950 text-slate-500 text-xs border-t border-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-              <PhoneCall className="w-3.5 h-3.5" />
+      <footer className="py-12 bg-slate-950 text-slate-500 text-xs border-t border-slate-900 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold">
+              <PhoneCall className="w-4 h-4" />
             </div>
-            <span className="font-bold text-slate-300">VocalPulse AI</span>
-            <span>&bull; Enterprise Multi-Tenant Telephony Platform</span>
+            <div>
+              <span className="font-bold text-slate-300 text-sm">VocalPulse AI</span>
+              <div className="text-[10px] text-slate-500">Autonomous Enterprise Telephony Platform</div>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6 text-[11px] text-slate-400">
             <span>SOC2 Type II Certified</span>
-            <span>HIPAA Ready</span>
-            <span>GDPR Compliant</span>
-            <span>TLS 1.3 Encrypted</span>
+            <span>HIPAA Compliant</span>
+            <span>GDPR Ready</span>
+            <span>TLS 1.3 Encryption</span>
+            <span>Tier-1 SIP Carriers</span>
           </div>
         </div>
       </footer>
