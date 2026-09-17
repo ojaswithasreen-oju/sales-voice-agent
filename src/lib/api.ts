@@ -11,6 +11,12 @@ import type {
   IntegrationItem,
   NotificationItem,
   AuditLogItem,
+  HandoffBrief,
+  FollowUpTask,
+  AiImprovementSuggestion,
+  KnowledgeVersion,
+  CompanyConversationAnalytics,
+  HandoffTriggerReason,
 } from '../types';
 
 let currentTenantId = 'org_acme_cloud';
@@ -333,5 +339,177 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  // Smart Human Handoff
+  async detectHandoff(data: {
+    userMessage: string;
+    conversationHistory?: { speaker?: string; role?: string; text: string }[];
+    callerName?: string;
+    callerCompany?: string;
+    productDiscussed?: string;
+  }) {
+    return request<{
+      triggered: boolean;
+      triggerReason: HandoffTriggerReason | null;
+      handoffBrief: HandoffBrief | null;
+    }>('/api/handoff/detect', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async transferCallToHuman(data: {
+    callId?: string;
+    repId?: string;
+    repName?: string;
+    handoffBrief: HandoffBrief;
+  }) {
+    return request<{
+      success: boolean;
+      transferredTo: string;
+      transferredAt: string;
+      status: string;
+    }>('/api/handoff/transfer', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async requestHandoffCallback(data: {
+    callId?: string;
+    customerName: string;
+    phone: string;
+    company?: string;
+    preferredTime?: string;
+    notes?: string;
+    handoffBrief?: HandoffBrief;
+  }) {
+    return request<{
+      success: boolean;
+      task: FollowUpTask;
+    }>('/api/handoff/callback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getFollowUpTasks() {
+    return request<FollowUpTask[]>('/api/handoff/tasks');
+  },
+
+  async updateFollowUpTask(id: string, data: Partial<FollowUpTask>) {
+    return request<FollowUpTask>(`/api/handoff/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getAvailableReps() {
+    return request<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      status: 'available' | 'in_call' | 'offline';
+      activeCallsToday: number;
+      avatarColor: string;
+    }[]>('/api/handoff/reps');
+  },
+
+  // Conversation Intelligence
+  async getConversationAnalytics(params?: {
+    dateRange?: string;
+    assistantId?: string;
+    productId?: string;
+    repId?: string;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.dateRange) query.set('dateRange', params.dateRange);
+    if (params?.assistantId) query.set('assistantId', params.assistantId);
+    if (params?.productId) query.set('productId', params.productId);
+    if (params?.repId) query.set('repId', params.repId);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return request<CompanyConversationAnalytics>(`/api/analytics/conversations${queryString}`);
+  },
+
+  async analyzeCall(callId: string) {
+    return request<{
+      callId: string;
+      callerName: string;
+      aiAnalysis: any;
+      summary: string;
+      handoffBrief?: HandoffBrief;
+      transcript: any[];
+    }>(`/api/calls/${callId}/analyze`, {
+      method: 'POST',
+    });
+  },
+
+  // Continuous AI Improvement Loop
+  async getImprovementSuggestions(status?: string) {
+    const q = status && status !== 'all' ? `?status=${status}` : '';
+    return request<AiImprovementSuggestion[]>(`/api/improvements/suggestions${q}`);
+  },
+
+  async createImprovementSuggestion(data: Partial<AiImprovementSuggestion>) {
+    return request<AiImprovementSuggestion>('/api/improvements/suggestions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async approveImprovementSuggestion(id: string, data: {
+    targetKnowledgeSourceId?: string;
+    updatedText?: string;
+    changeSummary?: string;
+    reviewerName?: string;
+  }) {
+    return request<{
+      success: boolean;
+      suggestion: AiImprovementSuggestion;
+      version: KnowledgeVersion;
+      knowledgeSource: KnowledgeSource;
+    }>(`/api/improvements/suggestions/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async rejectImprovementSuggestion(id: string, reviewerName?: string) {
+    return request<{
+      success: boolean;
+      suggestion: AiImprovementSuggestion;
+    }>(`/api/improvements/suggestions/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reviewerName }),
+    });
+  },
+
+  async getKnowledgeVersions() {
+    return request<KnowledgeVersion[]>('/api/improvements/versions');
+  },
+
+  async revertKnowledgeVersion(id: string) {
+    return request<{
+      success: boolean;
+      version: KnowledgeVersion;
+    }>(`/api/improvements/versions/${id}/revert`, {
+      method: 'POST',
+    });
+  },
+
+  async getImprovementDashboard() {
+    return request<{
+      knowledgeGapsCount: number;
+      approvedImprovementsCount: number;
+      pendingSuggestionsCount: number;
+      aiResolutionRate: number;
+      knowledgeCoveragePct: number;
+      escalationRate: number;
+      performanceTrends: { month: string; resolutionRate: number; escalationRate: number; coveragePct: number }[];
+      unresolvedCustomerQuestions: { question: string; count: number; category: string }[];
+      mostCommonIssues: { category: string; count: number; percentage: number }[];
+    }>('/api/improvements/dashboard');
   },
 };

@@ -16,6 +16,17 @@ import type {
   IntegrationItem,
   NotificationItem,
   AuditLogItem,
+  HandoffTriggerReason,
+  HandoffBrief,
+  FollowUpTask,
+  CallImportantMoment,
+  CompetitorMention,
+  LeadQualificationBANT,
+  CompanyConversationAnalytics,
+  ImprovementCategory,
+  ImprovementStatus,
+  AiImprovementSuggestion,
+  KnowledgeVersion,
 } from './src/types';
 import { SUPPORTED_LANGUAGES, getLanguageByCode, detectLanguageFromText } from './src/lib/languages';
 
@@ -52,6 +63,9 @@ interface TenantDatabase {
   integrations: Map<string, IntegrationItem[]>;
   notifications: Map<string, NotificationItem[]>;
   auditLogs: Map<string, AuditLogItem[]>;
+  followUpTasks: Map<string, FollowUpTask[]>;
+  improvementSuggestions: Map<string, AiImprovementSuggestion[]>;
+  knowledgeVersions: Map<string, KnowledgeVersion[]>;
 }
 
 const db: TenantDatabase = {
@@ -67,6 +81,9 @@ const db: TenantDatabase = {
   integrations: new Map(),
   notifications: new Map(),
   auditLogs: new Map(),
+  followUpTasks: new Map(),
+  improvementSuggestions: new Map(),
+  knowledgeVersions: new Map(),
 };
 
 // Seed Tenant 1: Acme Cloud Corp
@@ -422,6 +439,7 @@ db.calls.set(tenant1Id, [
     assistantId: 'asst_sarah_enterprise',
     assistantName: 'Sarah - Enterprise Sales Specialist',
     callerNumber: '+1 (212) 555-8942',
+    callerPhone: '+1 (212) 555-8942',
     callerName: 'Marcus Vance',
     callerCompany: 'Vanguard Logix',
     direction: 'inbound',
@@ -445,8 +463,16 @@ db.calls.set(tenant1Id, [
     ],
     aiAnalysis: {
       intent: 'Evaluate enterprise cloud pipeline capacity, compliance specs, and schedule technical demo',
-      productsDiscussed: ['Acme Enterprise Suite', 'VPC Peering', 'SOC2 / SSO'],
+      callerIntent: 'Enterprise Evaluation & Demo Booking',
+      mainRequirement: '500+ concurrent pipeline processing capacity with sub-second latency and SOC2 Type II compliance',
+      productsDiscussed: ['Acme Enterprise Suite', 'VPC Peering', 'SOC2 / SSO Engine'],
       objections: ['Spike reliability concerns', 'Timeline constraint (3 weeks)'],
+      customerObjections: ['Spike reliability concerns during month-end', 'Strict 3-week rollout deadline'],
+      buyingSignals: [
+        'Explicit decision timeline stated (end of Q1 / 3 weeks)',
+        'Authority confirmed (VP Engineering with sign-off)',
+        'Calendar invite provided and accepted for Thursday demo'
+      ],
       sentiment: 'positive',
       buyingInterestScore: 95,
       questionsAsked: [
@@ -454,7 +480,25 @@ db.calls.set(tenant1Id, [
         'Is SOC2 Type II and SAML SSO included out of the box?',
         'How fast can we run an architecture review?'
       ],
+      importantMoments: [
+        { timestamp: '00:15', title: 'Bottleneck Stated', description: 'Customer explained severe month-end pipeline spikes', type: 'requirement' },
+        { timestamp: '00:54', title: 'Security & Compliance Gate', description: 'Inquired whether SOC2 Type II and SSO are native', type: 'question' },
+        { timestamp: '01:12', title: 'Timeline Urgency Signal', description: 'Decision deadline set within 3 weeks (Q1 close)', type: 'signal' },
+        { timestamp: '01:48', title: 'Demo Scheduled', description: 'Confirmed Thursday 2:00 PM Eastern slot', type: 'signal' }
+      ],
+      competitorMentions: [
+        { competitor: 'AWS Step Functions', context: 'Customer migrating away due to maintenance overhead and latency', sentiment: 'favorable_to_us' }
+      ],
+      leadQualification: {
+        bantScore: 94,
+        budget: 'Enterprise tier ($50,000+ budget confirmed)',
+        authority: 'Marcus Vance, VP Engineering (Direct Decision Maker)',
+        need: 'Urgent replacement for bottlenecked pipeline infrastructure',
+        timeline: '3 weeks (end of current quarter)',
+        status: 'qualified',
+      },
       recommendedAction: 'Send calendar invite confirmation with pre-demo architectural overview PDF',
+      recommendedNextSteps: 'Solutions Architect to review AWS Step Functions migration worksheet before Thursday call.',
       suggestedSalesStage: 'demo',
     },
     leadId: 'lead_1',
@@ -465,6 +509,7 @@ db.calls.set(tenant1Id, [
     assistantId: 'asst_alex_support',
     assistantName: 'Alex - Product & Inbound Support',
     callerNumber: '+1 (312) 555-6710',
+    callerPhone: '+1 (312) 555-6710',
     callerName: 'Elena Rostova',
     callerCompany: 'Nova Financial',
     direction: 'inbound',
@@ -477,22 +522,399 @@ db.calls.set(tenant1Id, [
     summary: 'Elena inquired about real-time reconciliation workflows and webhook latency. Alex confirmed sub-second response times and verified financial sector data encryption standards.',
     transcript: [
       { speaker: 'assistant', text: 'Hello! You have reached Acme Cloud product support and sales. My name is Alex. Are you exploring our APIs or looking for a product overview?', timestamp: '00:03' },
-      { speaker: 'customer', text: 'Hi Alex, we need to know what latency to expect on webhook callbacks for fintech transaction logs.', timestamp: '00:14' },
+      { speaker: 'customer', text: 'Hi Alex, we need to know what latency to expect on webhook callbacks for fintech transaction logs. We had latency issues with Twilio and generic providers.', timestamp: '00:14' },
       { speaker: 'assistant', text: 'Our global edge network guarantees p99 webhook delivery under 120 milliseconds worldwide, backed by automated retry queues and HMAC signature verification.', timestamp: '00:28' },
       { speaker: 'customer', text: 'That satisfies our benchmark. Can you connect me with someone regarding commercial pricing for 15 million transactions monthly?', timestamp: '00:46' },
       { speaker: 'assistant', text: 'Certainly! I have captured your requirements and assigned our Fintech Account Executive to contact you this afternoon.', timestamp: '01:02' }
     ],
     aiAnalysis: {
       intent: 'Technical API latency verification and high-volume commercial quote',
+      callerIntent: 'API Benchmark & Volume Pricing',
+      mainRequirement: 'Sub-120ms p99 webhook delivery for 15 million monthly financial transactions',
       productsDiscussed: ['Acme Enterprise Suite', 'Edge Webhooks API'],
-      objections: ['Latency thresholds'],
+      objections: ['Latency thresholds under financial compliance rules'],
+      customerObjections: ['Concerned about webhook throttling on spikes'],
+      buyingSignals: [
+        'Benchmark met immediately by Edge network specs',
+        '15M transaction monthly volume requested',
+        'Requested immediate commercial pricing contact'
+      ],
       sentiment: 'positive',
       buyingInterestScore: 88,
-      questionsAsked: ['What is p99 webhook latency?'],
+      questionsAsked: ['What is p99 webhook latency across global regions?'],
+      importantMoments: [
+        { timestamp: '00:14', title: 'Latency Objection', description: 'Caller highlighted dissatisfaction with prior providers', type: 'objection' },
+        { timestamp: '00:28', title: 'Technical Spec Cleared', description: 'Sub-120ms p99 SLA and HMAC security verified', type: 'signal' },
+        { timestamp: '00:46', title: 'Volume Quote Request', description: 'Requested 15M monthly volume contract terms', type: 'signal' }
+      ],
+      competitorMentions: [
+        { competitor: 'Twilio / Generic Webhooks', context: 'Suffering high latency and dropped callback retries', sentiment: 'favorable_to_us' }
+      ],
+      leadQualification: {
+        bantScore: 86,
+        budget: '$15,000 - $25,000 / month estimated volume',
+        authority: 'Head of Fintech Infrastructure',
+        need: 'Low-latency financial webhooks with enterprise SLA',
+        timeline: 'Q2 pilot deployment',
+        status: 'qualified',
+      },
       recommendedAction: 'Sales executive follow-up with volume discount matrix',
+      recommendedNextSteps: 'Deliver fintech benchmark sheet and schedule 15-min pricing call.',
       suggestedSalesStage: 'qualified',
     },
     leadId: 'lead_2',
+  },
+  {
+    id: 'call_103',
+    tenantId: tenant1Id,
+    assistantId: 'asst_sarah_enterprise',
+    assistantName: 'Sarah - Enterprise Sales Specialist',
+    callerNumber: '+1 (415) 555-3390',
+    callerPhone: '+1 (415) 555-3390',
+    callerName: 'Jordan Hayes',
+    callerCompany: 'Apex Global Logistics',
+    direction: 'inbound',
+    status: 'transferred',
+    outcome: 'transferred',
+    durationSeconds: 215,
+    timestamp: '2026-03-16T16:10:00Z',
+    recordingUrl: 'https://vocalpulse-recordings.storage.googleapis.com/org_acme/call_103.mp3',
+    audioDuration: '3m 35s',
+    summary: 'Jordan Hayes called seeking enterprise pricing negotiation for 40 seats. The AI detected high purchase intent combined with price negotiation and a request for a human salesperson. Sarah generated a real-time Handoff Brief and warm-transferred the live call to Senior Sales Manager David Miller.',
+    transcript: [
+      { speaker: 'assistant', text: 'Hello! You have reached Acme Cloud Corp. This is Sarah, how can I help you today?', timestamp: '00:02' },
+      { speaker: 'customer', text: 'Hi Sarah. We are expanding from our pilot to 40 sales rep seats. We love the system, but we need custom annual payment terms and a volume discount. Can I speak to a human sales manager right now?', timestamp: '00:18' },
+      { speaker: 'assistant', text: 'Congratulations on your expansion, Jordan! I completely understand. Because you are ready to license 40 enterprise seats, I am preparing a comprehensive handoff brief for David Miller, our Senior Sales Manager, and transferring your call right now. Please hold for just a moment.', timestamp: '00:36' }
+    ],
+    aiAnalysis: {
+      intent: 'Expand from pilot to 40 enterprise seats with custom volume pricing negotiation',
+      callerIntent: 'Pricing Negotiation & Human Transfer',
+      mainRequirement: '40 enterprise user licenses with annual billing discount and custom payment terms',
+      productsDiscussed: ['Acme Enterprise Suite', '40-Seat License Expansion'],
+      objections: ['Standard list pricing requires volume discount'],
+      customerObjections: ['Requires custom payment terms and multi-tier discount'],
+      buyingSignals: [
+        'Already validated product in pilot with high satisfaction',
+        '40 seats immediate expansion ready to close',
+        'Customer proactively requested human sales manager'
+      ],
+      sentiment: 'positive',
+      buyingInterestScore: 98,
+      questionsAsked: ['Can we receive custom annual payment terms and volume pricing?'],
+      importantMoments: [
+        { timestamp: '00:18', title: 'Handoff Trigger: Pricing & Human Request', description: 'Customer requested human rep for 40-seat commercial negotiation', type: 'handoff' },
+        { timestamp: '00:36', title: 'Handoff Brief Generated', description: 'Sarah generated real-time briefing and initiated transfer to David Miller', type: 'signal' }
+      ],
+      leadQualification: {
+        bantScore: 98,
+        budget: '$48,000+ Annual Contract Value (ACV)',
+        authority: 'VP of Commercial Operations',
+        need: '40 enterprise voice seats for sales team expansion',
+        timeline: 'Immediate / Ready to sign this week',
+        status: 'qualified',
+      },
+      recommendedAction: 'Execute warm handoff to David Miller with prepared 40-seat proposal',
+      recommendedNextSteps: 'Offer 15% annual commitment discount and net-30 payment terms.',
+      suggestedSalesStage: 'negotiation',
+      handoffBrief: {
+        customerName: 'Jordan Hayes',
+        customerRequirement: '40 enterprise sales rep seats with volume discount and custom annual payment terms',
+        productDiscussed: 'Acme Enterprise Suite (40 Licenses)',
+        keyQuestions: ['What volume discount tier applies to 40 seats?', 'Are Net-30 payment terms permitted?'],
+        objections: ['Cannot proceed at standard non-discounted monthly tier'],
+        buyingIntent: 'Urgent',
+        conversationSummary: 'Caller completed successful pilot and is ready to sign for 40 seats today upon agreeing on volume terms.',
+        recommendedNextAction: 'Review 40-seat tier bracket, offer 15% annual upfront discount, and send DocuSign agreement.',
+        triggerReason: 'pricing_negotiation',
+        suggestedRepId: 'user_david_m',
+        assignedRepName: 'David Miller',
+        transferredAt: '2026-03-16T16:11:00Z',
+        status: 'transferred',
+      },
+    },
+    handoffBrief: {
+      customerName: 'Jordan Hayes',
+      customerRequirement: '40 enterprise sales rep seats with volume discount and custom annual payment terms',
+      productDiscussed: 'Acme Enterprise Suite (40 Licenses)',
+      keyQuestions: ['What volume discount tier applies to 40 seats?', 'Are Net-30 payment terms permitted?'],
+      objections: ['Cannot proceed at standard non-discounted monthly tier'],
+      buyingIntent: 'Urgent',
+      conversationSummary: 'Caller completed successful pilot and is ready to sign for 40 seats today upon agreeing on volume terms.',
+      recommendedNextAction: 'Review 40-seat tier bracket, offer 15% annual upfront discount, and send DocuSign agreement.',
+      triggerReason: 'pricing_negotiation',
+      suggestedRepId: 'user_david_m',
+      assignedRepName: 'David Miller',
+      transferredAt: '2026-03-16T16:11:00Z',
+      status: 'transferred',
+    },
+  },
+  {
+    id: 'call_104',
+    tenantId: tenant1Id,
+    assistantId: 'asst_sarah_enterprise',
+    assistantName: 'Sarah - Enterprise Sales Specialist',
+    callerNumber: '+1 (617) 555-8902',
+    callerPhone: '+1 (617) 555-8902',
+    callerName: 'Dr. Kevin Zhao',
+    callerCompany: 'MetroHealth Telemetry',
+    direction: 'inbound',
+    status: 'completed',
+    outcome: 'callback_requested',
+    durationSeconds: 180,
+    timestamp: '2026-03-16T09:15:00Z',
+    recordingUrl: 'https://vocalpulse-recordings.storage.googleapis.com/org_acme/call_104.mp3',
+    audioDuration: '3m 00s',
+    summary: 'Dr. Kevin Zhao called with complex legal questions regarding HIPAA Business Associate Agreements (BAA) and on-premise encryption key escrow. Because the legal team was unavailable, the AI generated a handoff brief and automatically scheduled a callback task assigned to Rachel Torres.',
+    transcript: [
+      { speaker: 'assistant', text: 'Thank you for calling Acme Cloud Corp. My name is Sarah. How can I assist you?', timestamp: '00:02' },
+      { speaker: 'customer', text: 'Hi, we are evaluating your voice system for patient intake. We need to know if you execute custom HIPAA BAAs with customer-managed KMS encryption keys outside AWS.', timestamp: '00:17' },
+      { speaker: 'assistant', text: 'We take healthcare data privacy very seriously. We do sign standard HIPAA BAAs for enterprise plans; however, customer-managed KMS keys outside our native cloud requires specialized review by our Chief Compliance Officer. Let me connect you with our Healthcare Lead, Rachel Torres.', timestamp: '00:42' },
+      { speaker: 'customer', text: 'Rachel is probably busy right now. Could someone please call me back tomorrow morning around 9:30 AM EST?', timestamp: '01:05' },
+      { speaker: 'assistant', text: 'I would be glad to arrange that for you, Dr. Zhao. I have created a priority follow-up task for Rachel Torres to call you back tomorrow at 9:30 AM Eastern at +1 (617) 555-8902. You will also receive an SMS confirmation.', timestamp: '01:28' }
+    ],
+    aiAnalysis: {
+      intent: 'HIPAA Business Associate Agreement (BAA) terms and customer-managed external KMS keys',
+      callerIntent: 'Compliance Review & Callback Request',
+      mainRequirement: 'Custom HIPAA BAA with external KMS key escrow for healthcare patient telemetry intake',
+      productsDiscussed: ['Acme Enterprise Suite', 'HIPAA Healthcare Add-on'],
+      objections: ['Requires customized BAA legal rider before clinical pilot'],
+      customerObjections: ['Cannot proceed without explicit customer-managed KMS encryption verification'],
+      buyingSignals: [
+        'Dr. Zhao confirmed clinical patient intake deployment budget is approved',
+        'Provided callback phone and exact requested time'
+      ],
+      sentiment: 'neutral',
+      buyingInterestScore: 82,
+      questionsAsked: [
+        'Does Acme execute custom HIPAA BAAs?',
+        'Are customer-managed KMS keys supported outside AWS?'
+      ],
+      importantMoments: [
+        { timestamp: '00:17', title: 'Complex Question Outside AI Scope', description: 'Detailed legal KMS escrow question identified', type: 'question' },
+        { timestamp: '00:42', title: 'Handoff Trigger: Complex Technical Inquiry', description: 'AI recognized boundary and initiated handoff to Healthcare Lead', type: 'handoff' },
+        { timestamp: '01:05', title: 'Callback Preferred by Prospect', description: 'Prospect requested 9:30 AM Eastern callback', type: 'signal' },
+        { timestamp: '01:28', title: 'Follow-up Task Auto-Created', description: 'Task assigned to Rachel Torres with reminder notification', type: 'signal' }
+      ],
+      leadQualification: {
+        bantScore: 80,
+        budget: '$35,000 / year approved clinical budget',
+        authority: 'Chief Medical Officer / Telehealth Lead',
+        need: 'HIPAA compliant conversational voice intake',
+        timeline: 'Pilot launch in May 2026',
+        status: 'nurture',
+      },
+      recommendedAction: 'Assign Rachel Torres to review external KMS escrow spec and call at 9:30 AM EST',
+      recommendedNextSteps: 'Attach Acme Healthcare Whitepaper and standard BAA template to the calendar event.',
+      suggestedSalesStage: 'qualified',
+      handoffBrief: {
+        customerName: 'Dr. Kevin Zhao',
+        customerRequirement: 'Custom HIPAA BAA and customer-managed external KMS encryption keys for patient intake',
+        productDiscussed: 'Acme Enterprise Suite (Healthcare BAA)',
+        keyQuestions: ['Does Acme support customer-managed KMS keys outside AWS?', 'Can legal execute custom BAA riders?'],
+        objections: ['Mandatory compliance obstacle before any patient data touches the platform'],
+        buyingIntent: 'High',
+        conversationSummary: 'Clinical intake project with approved budget, pending compliance verification regarding external key management.',
+        recommendedNextAction: 'Review KMS integration doc with SecOps team and phone Dr. Zhao promptly at 9:30 AM EST.',
+        triggerReason: 'complex_question',
+        suggestedRepId: 'user_rachel_t',
+        assignedRepName: 'Rachel Torres',
+        transferredAt: '2026-03-16T09:17:00Z',
+        status: 'callback_requested',
+        callbackDetails: {
+          phone: '+1 (617) 555-8902',
+          preferredTime: 'Tomorrow at 9:30 AM EST',
+          notes: 'Prepare answers on customer-managed KMS key escrow and standard HIPAA BAA rider.'
+        }
+      },
+    },
+    handoffBrief: {
+      customerName: 'Dr. Kevin Zhao',
+      customerRequirement: 'Custom HIPAA BAA and customer-managed external KMS encryption keys for patient intake',
+      productDiscussed: 'Acme Enterprise Suite (Healthcare BAA)',
+      keyQuestions: ['Does Acme support customer-managed KMS keys outside AWS?', 'Can legal execute custom BAA riders?'],
+      objections: ['Mandatory compliance obstacle before any patient data touches the platform'],
+      buyingIntent: 'High',
+      conversationSummary: 'Clinical intake project with approved budget, pending compliance verification regarding external key management.',
+      recommendedNextAction: 'Review KMS integration doc with SecOps team and phone Dr. Zhao promptly at 9:30 AM EST.',
+      triggerReason: 'complex_question',
+      suggestedRepId: 'user_rachel_t',
+      assignedRepName: 'Rachel Torres',
+      transferredAt: '2026-03-16T09:17:00Z',
+      status: 'callback_requested',
+      callbackDetails: {
+        phone: '+1 (617) 555-8902',
+        preferredTime: 'Tomorrow at 9:30 AM EST',
+        notes: 'Prepare answers on customer-managed KMS key escrow and standard HIPAA BAA rider.'
+      }
+    },
+    leadId: 'lead_3',
+  }
+]);
+
+// Seed Follow-Up Tasks for Smart Handoff Callbacks
+db.followUpTasks.set(tenant1Id, [
+  {
+    id: 'task_1',
+    tenantId: tenant1Id,
+    callId: 'call_104',
+    customerName: 'Dr. Kevin Zhao',
+    phone: '+1 (617) 555-8902',
+    company: 'MetroHealth Telemetry',
+    title: 'HIPAA BAA & External KMS Escrow Review',
+    reason: 'Smart Handoff Callback: Complex compliance question regarding KMS key escrow',
+    priority: 'urgent',
+    status: 'pending',
+    assignedToName: 'Rachel Torres',
+    dueDate: '2026-03-17T13:30:00Z', // 9:30 AM EST
+    createdAt: '2026-03-16T09:18:00Z',
+    notes: 'Prospect requested 9:30 AM EST callback. Prepare answers on customer-managed KMS key escrow and standard HIPAA BAA rider.',
+  },
+  {
+    id: 'task_2',
+    tenantId: tenant1Id,
+    callId: 'call_103',
+    customerName: 'Jordan Hayes',
+    phone: '+1 (415) 555-3390',
+    company: 'Apex Global Logistics',
+    title: 'Send 40-Seat Enterprise Agreement & Net-30 Terms',
+    reason: 'Smart Handoff Follow-up: High-intent pricing negotiation transferred to David Miller',
+    priority: 'high',
+    status: 'in_progress',
+    assignedToName: 'David Miller',
+    dueDate: '2026-03-16T21:00:00Z',
+    createdAt: '2026-03-16T16:15:00Z',
+    notes: 'Warm transfer completed. Prepare 15% discount schedule for annual upfront commitment and send contract.',
+  }
+]);
+
+// Seed Continuous AI Improvement Suggestions
+db.improvementSuggestions.set(tenant1Id, [
+  {
+    id: 'sugg_1',
+    tenantId: tenant1Id,
+    category: 'knowledge_gap',
+    title: 'Pro Plan Priority Support Inclusion Clarification',
+    description: '47 customers asked whether the Pro Plan includes 24/7 priority support and SLA guarantees.',
+    detectedFromCount: 47,
+    sampleCustomerQuotes: [
+      'Does the Pro Plan include priority support and dedicated Slack?',
+      'If we sign up for Pro, what is the guaranteed response time SLA?',
+      'Is phone support included on the Pro tier or only ticket support?'
+    ],
+    suggestedAnswer: 'The Pro Plan includes standard business-hours support (9 AM - 6 PM EST) with a guaranteed 4-hour response SLA. Priority 24/7 dedicated Slack channel and phone support are exclusively available on Enterprise Suite.',
+    targetKnowledgeSourceId: 'know_faq',
+    targetKnowledgeTitle: 'Frequently Asked Questions & Pricing Tiers',
+    status: 'pending',
+    createdAt: '2026-03-16T12:00:00Z',
+  },
+  {
+    id: 'sugg_2',
+    tenantId: tenant1Id,
+    category: 'missing_product_info',
+    title: 'HIPAA Compliance & Signed BAA Tier Availability',
+    description: '32 customers asked whether HIPAA compliance and signed BAAs are available on Growth Platform or only Enterprise.',
+    detectedFromCount: 32,
+    sampleCustomerQuotes: [
+      'Can we execute a HIPAA BAA on the Growth tier?',
+      'Do you sign BAAs for telehealth clinics on mid-tier plans?',
+      'What is the minimum tier for HIPAA certification?'
+    ],
+    suggestedAnswer: 'HIPAA compliance and signed Business Associate Agreements (BAAs) require our Enterprise Suite. We implement dedicated encrypted database partitions, audit logging, and BAA execution for all healthcare workloads.',
+    targetKnowledgeSourceId: 'know_playbook',
+    targetKnowledgeTitle: 'Sales Playbook & Compliance Guidelines',
+    status: 'pending',
+    createdAt: '2026-03-15T16:30:00Z',
+  },
+  {
+    id: 'sugg_3',
+    tenantId: tenant1Id,
+    category: 'common_objection',
+    title: 'Webhook Callback Spike & Throttling Mitigation',
+    description: '28 customers raised hesitation regarding webhook throughput limits during high-volume traffic bursts.',
+    detectedFromCount: 28,
+    sampleCustomerQuotes: [
+      'What happens if our API webhook spikes past 50,000 req/sec?',
+      'Will webhooks be dropped if our endpoint slows down during peak hours?',
+      'How does Acme handle bursty traffic without dropping payloads?'
+    ],
+    suggestedAnswer: 'Acme utilizes multi-region distributed Kafka queues with automated exponential backoff retries. If your receiving server experiences throttling, payloads are safely queued up to 72 hours with HMAC signature verification without dropped events.',
+    targetKnowledgeSourceId: 'know_playbook',
+    targetKnowledgeTitle: 'Sales Playbook & Compliance Guidelines',
+    status: 'pending',
+    createdAt: '2026-03-14T11:20:00Z',
+  },
+  {
+    id: 'sugg_4',
+    tenantId: tenant1Id,
+    category: 'requested_feature',
+    title: 'Custom Regional Telephony Caller IDs (Latin America & Europe)',
+    description: '21 customers asked if they can configure localized caller ID numbers for European and Latin American regional phone calls.',
+    detectedFromCount: 21,
+    sampleCustomerQuotes: [
+      'Can we display local Madrid and London numbers for European inbound?',
+      'Do you support localized caller ID in Brazil and Mexico?',
+      'Can outgoing calls show our country-specific office number?'
+    ],
+    suggestedAnswer: 'Yes. VocalPulse supports localized caller ID and regional number provisioning across 52+ countries including UK (+44), Spain (+34), Germany (+49), Mexico (+52), and Brazil (+55) with automatic local CLI presentation.',
+    targetKnowledgeSourceId: 'know_faq',
+    targetKnowledgeTitle: 'Frequently Asked Questions & Pricing Tiers',
+    status: 'approved',
+    createdAt: '2026-03-12T09:15:00Z',
+    reviewedAt: '2026-03-13T10:00:00Z',
+    reviewedBy: 'Ojaswitha Sreen',
+    appliedVersion: 2,
+  },
+  {
+    id: 'sugg_5',
+    tenantId: tenant1Id,
+    category: 'outdated_info',
+    title: 'Correct Uptime SLA Metric from 99.9% to 99.99%',
+    description: '15 customers noted that older sales collateral listed 99.9% SLA instead of the upgraded 99.99% multi-region enterprise SLA.',
+    detectedFromCount: 15,
+    sampleCustomerQuotes: [
+      'Your old PDF says 99.9%, but the website says 99.99%. Which is current?',
+      'What is the contractual financial credit for downtime?'
+    ],
+    suggestedAnswer: 'All Acme Cloud Enterprise plans are contractually backed by a 99.99% multi-region uptime SLA with tiered service credits for any downtime exceeding 4.38 minutes per month.',
+    targetKnowledgeSourceId: 'know_playbook',
+    targetKnowledgeTitle: 'Sales Playbook & Compliance Guidelines',
+    status: 'approved',
+    createdAt: '2026-03-10T14:40:00Z',
+    reviewedAt: '2026-03-11T11:00:00Z',
+    reviewedBy: 'David Miller',
+    appliedVersion: 1,
+  }
+]);
+
+// Seed Version History for Human-Approved Knowledge Updates
+db.knowledgeVersions.set(tenant1Id, [
+  {
+    id: 'ver_1',
+    tenantId: tenant1Id,
+    sourceId: 'know_playbook',
+    sourceTitle: 'Sales Playbook & Compliance Guidelines',
+    versionNumber: 1,
+    changeSummary: 'Updated contractual uptime SLA from 99.9% to 99.99% multi-region guarantee with service credits.',
+    previousContentSnippet: 'SLA guarantees 99.9% uptime across primary US availability zone.',
+    newContentSnippet: 'SLA contractually guarantees 99.99% multi-region uptime with automated failover and financial service credits.',
+    updatedBy: 'David Miller',
+    timestamp: '2026-03-11T11:00:00Z',
+    suggestionId: 'sugg_5',
+    status: 'active',
+  },
+  {
+    id: 'ver_2',
+    tenantId: tenant1Id,
+    sourceId: 'know_faq',
+    sourceTitle: 'Frequently Asked Questions & Pricing Tiers',
+    versionNumber: 2,
+    changeSummary: 'Added support details for local caller ID provisioning in Europe and Latin America.',
+    previousContentSnippet: 'Telephony numbers currently default to US and Canada local area codes.',
+    newContentSnippet: 'Localized caller ID and two-way telephone number provisioning is supported across 52+ countries including Europe and LATAM.',
+    updatedBy: 'Ojaswitha Sreen',
+    timestamp: '2026-03-13T10:00:00Z',
+    suggestionId: 'sugg_4',
+    status: 'active',
   }
 ]);
 
@@ -769,6 +1191,9 @@ db.team.set(tenant2Id, []);
 db.integrations.set(tenant2Id, []);
 db.notifications.set(tenant2Id, []);
 db.auditLogs.set(tenant2Id, []);
+db.followUpTasks.set(tenant2Id, []);
+db.improvementSuggestions.set(tenant2Id, []);
+db.knowledgeVersions.set(tenant2Id, []);
 
 // ----------------------------------------------------------------------------
 // MULTI-TENANT AUTHORIZATION MIDDLEWARE
@@ -905,6 +1330,9 @@ app.post('/api/auth/signup', (req, res) => {
       timestamp: new Date().toISOString(),
     }
   ]);
+  db.followUpTasks.set(newTenantId, []);
+  db.improvementSuggestions.set(newTenantId, []);
+  db.knowledgeVersions.set(newTenantId, []);
 
   res.status(201).json({
     user: newUser,
@@ -1814,6 +2242,628 @@ Return ONLY a valid JSON object strictly matching this format without markdown c
     console.error('Call simulation error:', err);
     res.status(500).json({ error: 'Call simulation failed', message: err?.message });
   }
+});
+
+// ----------------------------------------------------------------------------
+// 27. SMART HUMAN HANDOFF ENDPOINTS & ENGINE
+// ----------------------------------------------------------------------------
+
+function detectHandoffTrigger(text: string, history: any[] = []): { triggered: boolean; reason: HandoffTriggerReason | null } {
+  const allTexts = [text, ...history.map((h: any) => h.text || '')].join(' ').toLowerCase();
+
+  // 1. Ready to buy
+  if (/ready to (buy|sign|purchase|close|license|commit)|sign up today|send (the|a) contract|where do i sign|take my money|have my credit card|let's buy/i.test(allTexts)) {
+    return { triggered: true, reason: 'ready_to_buy' };
+  }
+  // 2. Customer requests human
+  if (/speak to (a )?(human|person|rep)|talk to (a )?(human|person|rep)|real person|human agent|sales representative|transfer me|human please|operator|connect me with a rep/i.test(allTexts)) {
+    return { triggered: true, reason: 'human_requested' };
+  }
+  // 3. Pricing negotiation
+  if (/volume discount|negotiate|lower (the )?price|discount|better deal|tight budget|payment terms|net-30|annual discount|can you do 20%|can you do 30%|budget constraint/i.test(allTexts)) {
+    return { triggered: true, reason: 'pricing_negotiation' };
+  }
+  // 4. Frustrated
+  if (/frustrated|angry|terrible|useless|waste of time|not listening|annoying|ridiculous|speak with (your|a) manager|stop repeating|worst support/i.test(allTexts)) {
+    return { triggered: true, reason: 'customer_frustrated' };
+  }
+  // 5. Special business request
+  if (/reseller|white label|partnership|distributor|acquisition|strategic partner|custom rfp|subcontract|agency partner/i.test(allTexts)) {
+    return { triggered: true, reason: 'special_business_request' };
+  }
+  // 6. Complex question outside AI knowledge
+  if (/custom on-premise|air-gapped|kms escrow|fips 140|bespoke compliance|hipaa baa|external key management|penetration test report/i.test(allTexts)) {
+    return { triggered: true, reason: 'complex_question' };
+  }
+
+  return { triggered: false, reason: null };
+}
+
+function generateHandoffBrief(params: {
+  customerName?: string;
+  customerRequirement?: string;
+  productDiscussed?: string;
+  triggerReason: HandoffTriggerReason;
+  conversationSummary?: string;
+  transcriptTurns?: any[];
+}): HandoffBrief {
+  const { customerName = 'Valued Customer', customerRequirement = 'Commercial expansion inquiry', productDiscussed = 'Acme Enterprise Suite', triggerReason, conversationSummary = 'Inbound prospect qualified for human sales handoff.', transcriptTurns = [] } = params;
+
+  let buyingIntent: 'Low' | 'Medium' | 'High' | 'Urgent' = 'High';
+  let recommendedNextAction = 'Conduct immediate live introduction, confirm commercial requirements, and present customized agreement.';
+  const objections: string[] = [];
+  const keyQuestions: string[] = [];
+
+  switch (triggerReason) {
+    case 'ready_to_buy':
+      buyingIntent = 'Urgent';
+      recommendedNextAction = 'Present finalized pricing schedule and execute DocuSign subscription agreement immediately.';
+      keyQuestions.push('What is the earliest onboarding date?', 'Where should we remit electronic invoice payment?');
+      break;
+    case 'human_requested':
+      buyingIntent = 'High';
+      recommendedNextAction = 'Warmly greet prospect, validate prior answers, and offer personalized 1-on-1 walkthrough.';
+      keyQuestions.push('Can a dedicated solutions consultant assist with our migration?');
+      break;
+    case 'pricing_negotiation':
+      buyingIntent = 'High';
+      recommendedNextAction = 'Review multi-seat volume discount tiers (offer 15% upfront annual incentive or Net-30 payment terms).';
+      objections.push('Standard pricing model exceeds initial departmental allocation without volume tier');
+      keyQuestions.push('What discount applies to 25+ seats?', 'Can payments be split semi-annually?');
+      break;
+    case 'customer_frustrated':
+      buyingIntent = 'Medium';
+      recommendedNextAction = 'De-escalate immediately with empathetic listening, validate specific friction points, and provide white-glove assistance.';
+      objections.push('Expressed frustration with automated qualification answers');
+      break;
+    case 'special_business_request':
+      buyingIntent = 'High';
+      recommendedNextAction = 'Connect with VP of Strategic Alliances to evaluate OEM / Reseller partnership framework.';
+      keyQuestions.push('Do you support white-label multi-tenant reselling?');
+      break;
+    case 'complex_question':
+      buyingIntent = 'High';
+      recommendedNextAction = 'Review technical compliance architecture and share custom security / BAA documentation.';
+      objections.push('Unverified compliance specs require specialized engineering sign-off');
+      keyQuestions.push('Can customer-managed KMS keys and dedicated tenant VPC isolation be provided?');
+      break;
+    default:
+      buyingIntent = 'Medium';
+  }
+
+  return {
+    customerName,
+    customerRequirement,
+    productDiscussed,
+    keyQuestions: keyQuestions.length ? keyQuestions : ['What are the platform capabilities and rollout timeline?'],
+    objections: objections.length ? objections : ['Implementation schedule and team migration'],
+    buyingIntent,
+    conversationSummary,
+    recommendedNextAction,
+    triggerReason,
+    status: 'pending',
+  };
+}
+
+// Detect handoff trigger in real-time
+app.post('/api/handoff/detect', (req, res) => {
+  const { userMessage = '', conversationHistory = [], callerName, callerCompany, productDiscussed } = req.body;
+  const detection = detectHandoffTrigger(userMessage, conversationHistory);
+
+  if (!detection.triggered) {
+    return res.json({ triggered: false, triggerReason: null, handoffBrief: null });
+  }
+
+  const brief = generateHandoffBrief({
+    customerName: callerName || 'Customer',
+    customerRequirement: callerCompany ? `${callerCompany} custom deployment requirements` : 'Enterprise evaluation',
+    productDiscussed: productDiscussed || 'Enterprise Suite',
+    triggerReason: detection.reason || 'ready_to_buy',
+    conversationSummary: `Customer message: "${userMessage}". Trigger: ${detection.reason?.replace(/_/g, ' ')}.`,
+    transcriptTurns: conversationHistory,
+  });
+
+  res.json({
+    triggered: true,
+    triggerReason: detection.reason,
+    handoffBrief: brief,
+  });
+});
+
+// Transfer call to available team member
+app.post('/api/handoff/transfer', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { callId, repId, repName, handoffBrief } = req.body;
+
+  const team = db.team.get(tenantId) || [];
+  const assignedRep = team.find((t) => t.id === repId) || team[0];
+  const finalRepName = repName || assignedRep?.name || 'David Miller';
+
+  // Update Call Record if callId provided
+  const calls = db.calls.get(tenantId) || [];
+  const call = calls.find((c) => c.id === callId);
+  if (call) {
+    call.status = 'transferred';
+    call.outcome = 'transferred';
+    const updatedBrief: HandoffBrief = {
+      ...(handoffBrief || call.aiAnalysis?.handoffBrief || {}),
+      suggestedRepId: repId || assignedRep?.id,
+      assignedRepName: finalRepName,
+      transferredAt: new Date().toISOString(),
+      status: 'transferred',
+    };
+    call.handoffBrief = updatedBrief;
+    if (call.aiAnalysis) {
+      call.aiAnalysis.handoffBrief = updatedBrief;
+    }
+    db.calls.set(tenantId, [...calls]);
+  }
+
+  // Add Notification to Rep
+  const notifs = db.notifications.get(tenantId) || [];
+  notifs.unshift({
+    id: `notif_handoff_${Date.now()}`,
+    tenantId,
+    type: 'high_intent',
+    title: `Live Call Transferred: ${handoffBrief?.customerName || 'Inbound Prospect'}`,
+    message: `Call transferred to ${finalRepName}. Reason: ${String(handoffBrief?.triggerReason || 'ready_to_buy').replace(/_/g, ' ')}. Intent: ${handoffBrief?.buyingIntent || 'High'}.`,
+    timestamp: 'Just now',
+    isRead: false,
+    link: '/dashboard/calls',
+  });
+  db.notifications.set(tenantId, notifs);
+
+  // Add Audit Log
+  const logs = db.auditLogs.get(tenantId) || [];
+  logs.unshift({
+    id: `audit_${Date.now()}`,
+    tenantId,
+    actorName: 'AI Sales Assistant',
+    action: 'CALL_HANDOFF_TRANSFERRED',
+    target: `${handoffBrief?.customerName || 'Customer'} -> ${finalRepName}`,
+    ip: '127.0.0.1',
+    timestamp: new Date().toISOString(),
+  });
+  db.auditLogs.set(tenantId, logs);
+
+  res.json({
+    success: true,
+    transferredTo: finalRepName,
+    transferredAt: new Date().toISOString(),
+    status: 'transferred',
+  });
+});
+
+// Offer callback and automatically create follow-up task
+app.post('/api/handoff/callback', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { callId, customerName = 'Valued Customer', phone = '', company = '', preferredTime = 'Tomorrow morning', notes = '', handoffBrief } = req.body;
+
+  const team = db.team.get(tenantId) || [];
+  const assignedRep = team[1]?.name || team[0]?.name || 'Rachel Torres';
+
+  const taskId = `task_${Date.now().toString(36)}`;
+  const newTask: FollowUpTask = {
+    id: taskId,
+    tenantId,
+    callId,
+    customerName,
+    phone,
+    company,
+    title: `Callback Request: ${customerName} (${company || 'Prospect'})`,
+    reason: handoffBrief?.triggerReason ? `Smart Handoff Callback: ${String(handoffBrief.triggerReason).replace(/_/g, ' ')}` : 'Customer requested callback',
+    priority: handoffBrief?.buyingIntent === 'Urgent' ? 'urgent' : 'high',
+    status: 'pending',
+    assignedToName: assignedRep,
+    dueDate: new Date(Date.now() + 86400000).toISOString(),
+    createdAt: new Date().toISOString(),
+    notes: notes || handoffBrief?.conversationSummary || `Preferred Time: ${preferredTime}. Requirements: ${handoffBrief?.customerRequirement || 'General Inquiry'}.`,
+  };
+
+  const tasks = db.followUpTasks.get(tenantId) || [];
+  tasks.unshift(newTask);
+  db.followUpTasks.set(tenantId, tasks);
+
+  // Update Call Record
+  const calls = db.calls.get(tenantId) || [];
+  const call = calls.find((c) => c.id === callId);
+  if (call) {
+    call.outcome = 'callback_requested';
+    const updatedBrief: HandoffBrief = {
+      ...(handoffBrief || call.aiAnalysis?.handoffBrief || {}),
+      assignedRepName: assignedRep,
+      status: 'callback_requested',
+      callbackDetails: {
+        phone,
+        preferredTime,
+        notes,
+      },
+    };
+    call.handoffBrief = updatedBrief;
+    if (call.aiAnalysis) {
+      call.aiAnalysis.handoffBrief = updatedBrief;
+    }
+    db.calls.set(tenantId, [...calls]);
+  }
+
+  // Create notification
+  const notifs = db.notifications.get(tenantId) || [];
+  notifs.unshift({
+    id: `notif_cb_${Date.now()}`,
+    tenantId,
+    type: 'appointment',
+    title: `Follow-up Task Created: ${customerName}`,
+    message: `Assigned to ${assignedRep} for callback at ${preferredTime} (${phone}).`,
+    timestamp: 'Just now',
+    isRead: false,
+    link: '/dashboard/calls',
+  });
+  db.notifications.set(tenantId, notifs);
+
+  res.status(201).json({
+    success: true,
+    task: newTask,
+  });
+});
+
+// Follow-up tasks list & update
+app.get('/api/handoff/tasks', (req, res) => {
+  const tenantId = getTenantId(req);
+  const tasks = db.followUpTasks.get(tenantId) || [];
+  res.json(tasks);
+});
+
+app.put('/api/handoff/tasks/:id', (req, res) => {
+  const tenantId = getTenantId(req);
+  const tasks = db.followUpTasks.get(tenantId) || [];
+  const taskIndex = tasks.findIndex((t) => t.id === req.params.id);
+  if (taskIndex === -1) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  tasks[taskIndex] = { ...tasks[taskIndex], ...req.body };
+  db.followUpTasks.set(tenantId, [...tasks]);
+  res.json(tasks[taskIndex]);
+});
+
+// Team availability for live handoff transfer
+app.get('/api/handoff/reps', (req, res) => {
+  const tenantId = getTenantId(req);
+  const team = db.team.get(tenantId) || [];
+  const repsWithStatus = team.map((member, index) => ({
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    status: index === 2 ? 'in_call' : 'available',
+    activeCallsToday: index === 0 ? 8 : (index === 1 ? 5 : 12),
+    avatarColor: index === 0 ? 'bg-indigo-600' : (index === 1 ? 'bg-emerald-600' : 'bg-amber-600'),
+  }));
+  res.json(repsWithStatus);
+});
+
+// ----------------------------------------------------------------------------
+// 28. CONVERSATION INTELLIGENCE (CALL-LEVEL & COMPANY-LEVEL ANALYTICS)
+// ----------------------------------------------------------------------------
+
+app.get('/api/analytics/conversations', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { dateRange = '30d', assistantId, productId, repId } = req.query;
+
+  let calls = db.calls.get(tenantId) || [];
+
+  if (assistantId && assistantId !== 'all') {
+    calls = calls.filter((c) => c.assistantId === assistantId);
+  }
+
+  const frequentlyAskedQuestions = [
+    { question: 'What is your standard contract duration and SLA guarantee?', count: 68, category: 'Pricing & SLA', aiAnsweredRate: 98 },
+    { question: 'Does the Pro Plan include 24/7 dedicated priority support?', count: 47, category: 'Support & Tiers', aiAnsweredRate: 72 },
+    { question: 'Can we pilot with 10 agents before company-wide rollout?', count: 54, category: 'Enterprise Pilot', aiAnsweredRate: 96 },
+    { question: 'Do you offer direct native CRM bi-directional sync?', count: 47, category: 'Integrations', aiAnsweredRate: 100 },
+    { question: 'Is HIPAA compliance and signed BAA available on Growth Platform?', count: 32, category: 'Compliance', aiAnsweredRate: 68 },
+    { question: 'How quickly can incoming phone calls be transferred to human sales reps?', count: 39, category: 'Telephony & Routing', aiAnsweredRate: 94 },
+    { question: 'Can we configure custom regional telephony caller IDs for Europe & LATAM?', count: 21, category: 'Global Calling', aiAnsweredRate: 85 }
+  ];
+
+  const commonObjections = [
+    { objection: 'Migration & implementation timeline', count: 42, percentage: 38, primaryProduct: 'Enterprise Suite', bestCounterTactic: 'Highlight 48-hour automated zero-downtime SIP trunk migration wizard.' },
+    { objection: 'Pricing model & custom annual payment terms', count: 35, percentage: 31, primaryProduct: 'Enterprise Suite', bestCounterTactic: 'Offer 15% annual upfront discount and Net-30 invoicing terms.' },
+    { objection: 'Integration with legacy on-premise ERP & KMS', count: 21, percentage: 19, primaryProduct: 'Custom Connectors', bestCounterTactic: 'Provide pre-built Docker gateway container and OpenAPI schemas.' },
+    { objection: 'Security & SOC2 Type II compliance verification', count: 14, percentage: 12, primaryProduct: 'Security Add-on', bestCounterTactic: 'Instantly email signed SOC2 Type II audit summary and penetration test report.' },
+    { objection: 'Webhook latency during bursty traffic spikes', count: 11, percentage: 10, primaryProduct: 'Edge Webhooks', bestCounterTactic: 'Demonstrate sub-120ms p99 benchmark and automated Kafka buffer queues.' }
+  ];
+
+  const frequentlyRequestedProducts = [
+    { productName: 'Acme Enterprise Suite', inquiriesCount: 184, conversionRate: 34.2, interestTrend: 'up' as const },
+    { productName: 'Global Edge Webhooks API', inquiriesCount: 92, conversionRate: 28.5, interestTrend: 'up' as const },
+    { productName: 'HIPAA & Healthcare Compliance Add-on', inquiriesCount: 64, conversionRate: 22.0, interestTrend: 'stable' as const },
+    { productName: 'Custom Telephony Trunking (Telnyx/Twilio)', inquiriesCount: 48, conversionRate: 31.0, interestTrend: 'stable' as const },
+    { productName: 'White-label Reseller License', inquiriesCount: 24, conversionRate: 16.7, interestTrend: 'up' as const }
+  ];
+
+  const hesitationReasons = [
+    { reason: 'Pricing uncertainty & volume discount approval', count: 46, impact: 'high' as const, description: 'Prospects require authorized executive confirmation of tier discounts for 20+ seats.' },
+    { reason: 'Migration timeline and onboarding bandwidth', count: 38, impact: 'high' as const, description: 'Teams worry about disrupted sales workflows during AI voice transition.' },
+    { reason: 'Security review and compliance documentation turnaround', count: 27, impact: 'medium' as const, description: 'Legal departments require signed BAAs and SOC2 Type II audit letters.' },
+    { reason: 'Legacy ERP & custom CRM sync compatibility', count: 19, impact: 'medium' as const, description: 'Companies using proprietary databases need assurance regarding webhook reliability.' },
+    { reason: 'Contract duration lock-in hesitation', count: 12, impact: 'low' as const, description: 'Prospects prefer 60-day pilot clauses before committing to multi-year contracts.' }
+  ];
+
+  const unansweredTopics = [
+    { topic: 'Customer-Managed KMS Encryption Key Escrow outside AWS', frequency: 18, lastAsked: '2 hours ago', sampleQuestion: 'Does Acme allow private on-premise KMS keys for HIPAA data?' },
+    { topic: 'Pro Plan Dedicated Priority Support SLAs', frequency: 15, lastAsked: 'Yesterday', sampleQuestion: 'Does the Pro tier have phone support and 1-hour response times?' },
+    { topic: 'Hardware Security Module (HSM) Level 3 Certification', frequency: 9, lastAsked: '3 days ago', sampleQuestion: 'Is VocalPulse voice storage FIPS 140-2 Level 3 certified?' },
+    { topic: 'Custom Regional Caller ID Provisioning in APAC', frequency: 7, lastAsked: '4 days ago', sampleQuestion: 'Can we purchase Singapore and Australia numbers with local caller ID?' }
+  ];
+
+  const interestTrends = [
+    { period: 'Week 1 (Feb)', overallInterestScore: 78, qualifiedCount: 22, volume: 84 },
+    { period: 'Week 2 (Feb)', overallInterestScore: 82, qualifiedCount: 28, volume: 96 },
+    { period: 'Week 3 (Feb)', overallInterestScore: 84, qualifiedCount: 31, volume: 104 },
+    { period: 'Week 4 (Feb)', overallInterestScore: 86, qualifiedCount: 37, volume: 118 },
+    { period: 'Week 1 (Mar)', overallInterestScore: 89, qualifiedCount: 42, volume: 132 },
+    { period: 'Week 2 (Mar)', overallInterestScore: 93, qualifiedCount: 51, volume: 145 },
+    { period: 'Current Week', overallInterestScore: 95, qualifiedCount: 56, volume: 162 },
+  ];
+
+  res.json({
+    dateRange,
+    totalCalls: calls.length * 45 + 112,
+    avgInterestScore: 89,
+    humanHandoffRate: '8.4%',
+    qualifiedRate: '51.8%',
+    frequentlyAskedQuestions,
+    commonObjections,
+    frequentlyRequestedProducts,
+    hesitationReasons,
+    unansweredTopics,
+    interestTrends,
+  });
+});
+
+// Single call intelligence analysis
+app.post('/api/calls/:id/analyze', (req, res) => {
+  const tenantId = getTenantId(req);
+  const calls = db.calls.get(tenantId) || [];
+  const call = calls.find((c) => c.id === req.params.id);
+
+  if (!call) {
+    return res.status(404).json({ error: 'Call record not found' });
+  }
+
+  res.json({
+    callId: call.id,
+    callerName: call.callerName,
+    aiAnalysis: call.aiAnalysis,
+    summary: call.summary,
+    handoffBrief: call.handoffBrief || call.aiAnalysis?.handoffBrief,
+    transcript: call.transcript,
+  });
+});
+
+// ----------------------------------------------------------------------------
+// 29. CONTINUOUS AI IMPROVEMENT LOOP (KNOWLEDGE GAPS & HUMAN APPROVAL)
+// ----------------------------------------------------------------------------
+
+// Get AI Improvement Suggestions
+app.get('/api/improvements/suggestions', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { status } = req.query;
+  let suggestions = db.improvementSuggestions.get(tenantId) || [];
+
+  if (status && status !== 'all') {
+    suggestions = suggestions.filter((s) => s.status === status);
+  }
+
+  res.json(suggestions);
+});
+
+// Create an improvement suggestion (detected by AI analysis)
+app.post('/api/improvements/suggestions', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { category, title, description, detectedFromCount = 1, sampleCustomerQuotes = [], suggestedAnswer, targetKnowledgeSourceId } = req.body;
+
+  const newSuggestion: AiImprovementSuggestion = {
+    id: `sugg_${Date.now().toString(36)}`,
+    tenantId,
+    category: category || 'knowledge_gap',
+    title: title || 'New Knowledge Gap Detected',
+    description: description || 'Customers asked questions not fully covered in Knowledge Base.',
+    detectedFromCount: Number(detectedFromCount) || 1,
+    sampleCustomerQuotes,
+    suggestedAnswer: suggestedAnswer || '',
+    targetKnowledgeSourceId,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+
+  const suggestions = db.improvementSuggestions.get(tenantId) || [];
+  suggestions.unshift(newSuggestion);
+  db.improvementSuggestions.set(tenantId, suggestions);
+
+  res.status(201).json(newSuggestion);
+});
+
+// HUMAN APPROVAL WORKFLOW GATE:
+// CRITICAL: The AI must NEVER automatically change important company information,
+// pricing, policies, or sales rules without authorized human approval.
+app.post('/api/improvements/suggestions/:id/approve', (req, res) => {
+  const tenantId = getTenantId(req);
+  const { targetKnowledgeSourceId, updatedText, changeSummary, reviewerName } = req.body;
+
+  const suggestions = db.improvementSuggestions.get(tenantId) || [];
+  const suggestion = suggestions.find((s) => s.id === req.params.id);
+
+  if (!suggestion) {
+    return res.status(404).json({ error: 'Improvement suggestion not found' });
+  }
+
+  const knowledgeList = db.knowledge.get(tenantId) || [];
+  const targetDoc = knowledgeList.find((k) => k.id === (targetKnowledgeSourceId || suggestion.targetKnowledgeSourceId)) || knowledgeList[0];
+
+  const sourceTitle = targetDoc?.title || 'Company Knowledge Base';
+  const previousSnippet = targetDoc?.content ? targetDoc.content.slice(-200) : 'Standard introductory text';
+  const answerToAdd = updatedText || suggestion.suggestedAnswer;
+
+  // Append human-approved knowledge update
+  if (targetDoc) {
+    targetDoc.content = `${targetDoc.content}\n\n### ${suggestion.title} (Human Approved)\n${answerToAdd}`;
+    targetDoc.updatedAt = new Date().toISOString();
+  }
+
+  // Generate Version Record
+  const versions = db.knowledgeVersions.get(tenantId) || [];
+  const newVersionNumber = versions.length + 1;
+  const newVersion: KnowledgeVersion = {
+    id: `ver_${Date.now().toString(36)}`,
+    tenantId,
+    sourceId: targetDoc?.id || 'know_main',
+    sourceTitle,
+    versionNumber: newVersionNumber,
+    changeSummary: changeSummary || `Approved answer for: "${suggestion.title}"`,
+    previousContentSnippet: previousSnippet,
+    newContentSnippet: answerToAdd,
+    updatedBy: reviewerName || 'Authorized Admin',
+    timestamp: new Date().toISOString(),
+    suggestionId: suggestion.id,
+    status: 'active',
+  };
+  versions.unshift(newVersion);
+  db.knowledgeVersions.set(tenantId, versions);
+
+  // Update Suggestion status
+  suggestion.status = 'approved';
+  suggestion.reviewedAt = new Date().toISOString();
+  suggestion.reviewedBy = reviewerName || 'Authorized Admin';
+  suggestion.appliedVersion = newVersionNumber;
+  db.improvementSuggestions.set(tenantId, [...suggestions]);
+
+  // Audit Log
+  const logs = db.auditLogs.get(tenantId) || [];
+  logs.unshift({
+    id: `audit_${Date.now()}`,
+    tenantId,
+    actorName: reviewerName || 'Authorized Admin',
+    action: 'KNOWLEDGE_IMPROVEMENT_APPROVED',
+    target: `${sourceTitle} (v${newVersionNumber})`,
+    ip: '127.0.0.1',
+    timestamp: new Date().toISOString(),
+  });
+  db.auditLogs.set(tenantId, logs);
+
+  // Notification
+  const notifs = db.notifications.get(tenantId) || [];
+  notifs.unshift({
+    id: `notif_imp_${Date.now()}`,
+    tenantId,
+    type: 'knowledge',
+    title: `Knowledge Base Updated: v${newVersionNumber}`,
+    message: `Human approved AI improvement: "${suggestion.title}". Now live for all voice assistants.`,
+    timestamp: 'Just now',
+    isRead: false,
+    link: '/dashboard/knowledge',
+  });
+  db.notifications.set(tenantId, notifs);
+
+  res.json({
+    success: true,
+    suggestion,
+    version: newVersion,
+    knowledgeSource: targetDoc,
+  });
+});
+
+// Reject/dismiss suggestion
+app.post('/api/improvements/suggestions/:id/reject', (req, res) => {
+  const tenantId = getTenantId(req);
+  const suggestions = db.improvementSuggestions.get(tenantId) || [];
+  const suggestion = suggestions.find((s) => s.id === req.params.id);
+
+  if (!suggestion) {
+    return res.status(404).json({ error: 'Improvement suggestion not found' });
+  }
+
+  suggestion.status = 'rejected';
+  suggestion.reviewedAt = new Date().toISOString();
+  suggestion.reviewedBy = req.body?.reviewerName || 'Admin';
+  db.improvementSuggestions.set(tenantId, [...suggestions]);
+
+  res.json({ success: true, suggestion });
+});
+
+// Get version history
+app.get('/api/improvements/versions', (req, res) => {
+  const tenantId = getTenantId(req);
+  const versions = db.knowledgeVersions.get(tenantId) || [];
+  res.json(versions);
+});
+
+// Revert version back
+app.post('/api/improvements/versions/:id/revert', (req, res) => {
+  const tenantId = getTenantId(req);
+  const versions = db.knowledgeVersions.get(tenantId) || [];
+  const version = versions.find((v) => v.id === req.params.id);
+
+  if (!version) {
+    return res.status(404).json({ error: 'Version not found' });
+  }
+
+  version.status = 'reverted';
+  db.knowledgeVersions.set(tenantId, [...versions]);
+
+  // Log audit
+  const logs = db.auditLogs.get(tenantId) || [];
+  logs.unshift({
+    id: `audit_${Date.now()}`,
+    tenantId,
+    actorName: 'Authorized Admin',
+    action: 'KNOWLEDGE_VERSION_REVERTED',
+    target: `${version.sourceTitle} (v${version.versionNumber} Reverted)`,
+    ip: '127.0.0.1',
+    timestamp: new Date().toISOString(),
+  });
+  db.auditLogs.set(tenantId, logs);
+
+  res.json({ success: true, version });
+});
+
+// Continuous AI Improvement Dashboard Overview
+app.get('/api/improvements/dashboard', (req, res) => {
+  const tenantId = getTenantId(req);
+  const suggestions = db.improvementSuggestions.get(tenantId) || [];
+  const versions = db.knowledgeVersions.get(tenantId) || [];
+
+  const pending = suggestions.filter((s) => s.status === 'pending');
+  const approved = suggestions.filter((s) => s.status === 'approved');
+
+  res.json({
+    knowledgeGapsCount: suggestions.filter((s) => s.category === 'knowledge_gap').length,
+    approvedImprovementsCount: approved.length,
+    pendingSuggestionsCount: pending.length,
+    aiResolutionRate: 89.4,
+    knowledgeCoveragePct: 94.2,
+    escalationRate: 10.6,
+    performanceTrends: [
+      { month: 'Nov', resolutionRate: 74.2, escalationRate: 25.8, coveragePct: 78.0 },
+      { month: 'Dec', resolutionRate: 79.5, escalationRate: 20.5, coveragePct: 83.5 },
+      { month: 'Jan', resolutionRate: 83.1, escalationRate: 16.9, coveragePct: 88.2 },
+      { month: 'Feb', resolutionRate: 86.8, escalationRate: 13.2, coveragePct: 91.5 },
+      { month: 'Mar (Current)', resolutionRate: 89.4, escalationRate: 10.6, coveragePct: 94.2 },
+    ],
+    unresolvedCustomerQuestions: [
+      { question: 'Does Acme allow private on-premise KMS keys for HIPAA data?', count: 18, category: 'Compliance' },
+      { question: 'Does the Pro tier have phone support and 1-hour response times?', count: 15, category: 'Pricing & Tiers' },
+      { question: 'Is VocalPulse voice storage FIPS 140-2 Level 3 certified?', count: 9, category: 'Security' },
+      { question: 'Can we purchase Singapore and Australia numbers with local caller ID?', count: 7, category: 'Telephony' },
+    ],
+    mostCommonIssues: [
+      { category: 'Knowledge Gaps', count: 47, percentage: 38 },
+      { category: 'Missing Product Specs', count: 32, percentage: 26 },
+      { category: 'Common Objections', count: 28, percentage: 22 },
+      { category: 'Outdated Collateral', count: 15, percentage: 14 },
+    ]
+  });
 });
 
 // ----------------------------------------------------------------------------

@@ -160,16 +160,93 @@ export interface TranscriptTurn {
   detectedLanguage?: string;
 }
 
+export type HandoffTriggerReason =
+  | 'ready_to_buy'
+  | 'human_requested'
+  | 'complex_question'
+  | 'pricing_negotiation'
+  | 'customer_frustrated'
+  | 'special_business_request'
+  | 'manual';
+
+export interface HandoffBrief {
+  customerName: string;
+  customerRequirement: string;
+  productDiscussed: string;
+  keyQuestions: string[];
+  objections: string[];
+  buyingIntent: 'Low' | 'Medium' | 'High' | 'Urgent';
+  conversationSummary: string;
+  recommendedNextAction: string;
+  triggerReason: HandoffTriggerReason;
+  suggestedRepId?: string;
+  assignedRepName?: string;
+  transferredAt?: string;
+  status: 'pending' | 'transferred' | 'callback_requested' | 'resolved';
+  callbackDetails?: {
+    phone: string;
+    preferredTime: string;
+    notes: string;
+  };
+}
+
+export interface FollowUpTask {
+  id: string;
+  tenantId: string;
+  callId?: string;
+  customerName: string;
+  phone: string;
+  company?: string;
+  title: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'pending' | 'in_progress' | 'completed';
+  assignedToName: string;
+  dueDate: string;
+  createdAt: string;
+  notes: string;
+}
+
+export interface CallImportantMoment {
+  timestamp: string;
+  title: string;
+  description: string;
+  type: 'signal' | 'objection' | 'requirement' | 'handoff' | 'question';
+}
+
+export interface CompetitorMention {
+  competitor: string;
+  context: string;
+  sentiment: 'favorable_to_us' | 'comparing' | 'favorable_to_them';
+}
+
+export interface LeadQualificationBANT {
+  bantScore: number;
+  budget: string;
+  authority: string;
+  need: string;
+  timeline: string;
+  status: 'qualified' | 'disqualified' | 'nurture';
+}
+
 export interface CallAnalysis {
   intent: string;
+  callerIntent?: string;
+  mainRequirement?: string;
   productsDiscussed: string[];
   objections: string[];
-  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+  customerObjections?: string[];
+  buyingSignals?: string[];
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed' | 'frustrated';
   buyingInterestScore: number;
   questionsAsked: string[];
+  importantMoments?: CallImportantMoment[];
+  competitorMentions?: CompetitorMention[];
+  leadQualification?: LeadQualificationBANT;
   recommendedAction: string;
   recommendedNextSteps?: string;
   suggestedSalesStage: LeadStage;
+  handoffBrief?: HandoffBrief;
 }
 
 export interface CallRecord {
@@ -178,6 +255,7 @@ export interface CallRecord {
   assistantId: string;
   assistantName: string;
   callerNumber: string;
+  callerPhone?: string;
   callerName: string;
   callerCompany: string;
   direction: 'inbound' | 'outbound';
@@ -191,6 +269,93 @@ export interface CallRecord {
   summary: string;
   aiAnalysis: CallAnalysis;
   leadId?: string;
+  handoffBrief?: HandoffBrief;
+  sentiment?: string;
+}
+
+export interface CompanyConversationAnalytics {
+  frequentlyAskedQuestions: Array<{
+    question: string;
+    count: number;
+    category: string;
+    aiAnsweredRate: number;
+  }>;
+  commonObjections: Array<{
+    objection: string;
+    count: number;
+    percentage: number;
+    primaryProduct: string;
+    bestCounterTactic: string;
+  }>;
+  frequentlyRequestedProducts: Array<{
+    productName: string;
+    inquiriesCount: number;
+    conversionRate: number;
+    interestTrend: 'up' | 'stable' | 'down';
+  }>;
+  hesitationReasons: Array<{
+    reason: string;
+    count: number;
+    impact: 'high' | 'medium' | 'low';
+    description: string;
+  }>;
+  unansweredTopics: Array<{
+    topic: string;
+    frequency: number;
+    lastAsked: string;
+    sampleQuestion: string;
+  }>;
+  interestTrends: Array<{
+    period: string;
+    overallInterestScore: number;
+    qualifiedCount: number;
+    volume: number;
+  }>;
+}
+
+export type ImprovementCategory =
+  | 'unanswered_question'
+  | 'incorrect_incomplete'
+  | 'new_question'
+  | 'common_objection'
+  | 'missing_product_info'
+  | 'outdated_info'
+  | 'requested_feature'
+  | 'knowledge_gap';
+
+export type ImprovementStatus = 'pending' | 'approved' | 'rejected' | 'applied';
+
+export interface AiImprovementSuggestion {
+  id: string;
+  tenantId: string;
+  category: ImprovementCategory;
+  title: string;
+  description: string;
+  detectedFromCount: number;
+  sampleCustomerQuotes: string[];
+  suggestedAnswer: string;
+  targetKnowledgeSourceId?: string;
+  targetKnowledgeTitle?: string;
+  status: ImprovementStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  appliedVersion?: number;
+}
+
+export interface KnowledgeVersion {
+  id: string;
+  tenantId: string;
+  sourceId: string;
+  sourceTitle: string;
+  versionNumber: number;
+  changeSummary: string;
+  previousContentSnippet: string;
+  newContentSnippet: string;
+  updatedBy: string;
+  timestamp: string;
+  suggestionId?: string;
+  status: 'active' | 'reverted';
 }
 
 export interface TeamMember {

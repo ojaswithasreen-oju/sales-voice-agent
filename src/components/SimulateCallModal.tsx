@@ -523,43 +523,53 @@ export const SimulateCallModal: React.FC<SimulateCallModalProps> = ({
               )}
             </div>
 
-            {/* Multilingual Caller Prompt Chips */}
-            <div className="px-4 py-1.5 bg-white border-t border-slate-100 flex flex-wrap gap-1.5 text-[10px]">
-              <span className="text-slate-400 self-center">Switch Language:</span>
+            {/* Multilingual & Smart Handoff Caller Prompt Chips */}
+            <div className="px-4 py-2 bg-white border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span className="text-slate-400 font-semibold self-center">Quick Triggers:</span>
               <button
                 type="button"
-                onClick={() => handleSendMessage('What are your main capabilities and what does it cost?')}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                onClick={() => handleSendMessage('We are ready to buy right now. Can I speak with an executive salesperson to close today?')}
+                className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-pointer font-semibold"
+                title="Test Smart Handoff: Ready to Buy"
               >
-                🇺🇸 English Pricing
+                🔥 Ready to Buy (Handoff)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('Can I please speak to a human representative?')}
+                className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer font-semibold"
+                title="Test Smart Handoff: Human Requested"
+              >
+                👤 Request Human Rep
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendMessage('We have 350 seats. Can we negotiate a volume discount and custom SLA?')}
+                className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 cursor-pointer font-semibold"
+                title="Test Smart Handoff: Pricing Negotiation"
+              >
+                💰 Pricing Negotiation
               </button>
               <button
                 type="button"
                 onClick={() => handleSendMessage('¿Tienen soporte técnico disponible las 24 horas y qué precio tiene?')}
-                className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer"
               >
-                🇲🇽 Español Soporte
+                🇲🇽 Español
               </button>
               <button
                 type="button"
                 onClick={() => handleSendMessage('Pouvez-vous m\'expliquer comment vos intégrations fonctionnent ?')}
-                className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer"
               >
-                🇫🇷 Français Intégrations
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSendMessage('Können wir eine Produktdemonstration für nächste Woche vereinbaren?')}
-                className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 cursor-pointer"
-              >
-                🇩🇪 Deutsch Demo
+                🇫🇷 Français
               </button>
               <button
                 type="button"
                 onClick={() => handleSendMessage('नमस्ते, आपकी कंपनी की सेवाएं हमारे बिज़नेस के लिए कैसे काम करेंगी?')}
-                className="px-2 py-0.5 rounded bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 cursor-pointer"
+                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer"
               >
-                🇮🇳 हिन्दी सहायता
+                🇮🇳 हिन्दी
               </button>
             </div>
 

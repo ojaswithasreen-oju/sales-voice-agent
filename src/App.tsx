@@ -25,7 +25,8 @@ import {
   ChevronDown,
   Building,
   Menu,
-  X
+  X,
+  Lightbulb
 } from 'lucide-react';
 import { api } from './lib/api';
 import type {
@@ -52,6 +53,7 @@ import { LeadsView } from './components/LeadsView';
 import { ProductsView } from './components/ProductsView';
 import { KnowledgeView } from './components/KnowledgeView';
 import { AnalyticsView } from './components/AnalyticsView';
+import { AIImprovementView } from './components/AIImprovementView';
 import { TeamView } from './components/TeamView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { BillingView } from './components/BillingView';
@@ -66,6 +68,7 @@ type NavTab =
   | 'leads'
   | 'products'
   | 'knowledge'
+  | 'improvements'
   | 'analytics'
   | 'team'
   | 'integrations'
@@ -230,6 +233,7 @@ export default function App() {
     { id: 'leads', label: 'Leads & CRM', icon: Users, count: leads.length },
     { id: 'products', label: 'Products & Catalogue', icon: Package, count: products.length },
     { id: 'knowledge', label: 'Knowledge Base', icon: FileText, count: knowledge.length },
+    { id: 'improvements', label: 'AI Improvement Loop', icon: Lightbulb },
     { id: 'analytics', label: 'Sales Analytics', icon: TrendingUp },
     { id: 'team', label: 'Team & RBAC', icon: Shield, count: teamMembers.length },
     { id: 'integrations', label: 'Integrations', icon: Layers, count: integrations.filter(i => i.connected).length },
@@ -438,6 +442,7 @@ export default function App() {
               calls={calls}
               assistants={assistants}
               onOpenSimulateModal={handleOpenSimulateModal}
+              onRefresh={loadWorkspaceData}
             />
           )}
 
@@ -457,11 +462,23 @@ export default function App() {
             <KnowledgeView knowledge={knowledge} onRefresh={loadWorkspaceData} />
           )}
 
+          {activeTab === 'improvements' && (
+            <AIImprovementView
+              knowledge={knowledge}
+              currentUser={currentUser}
+              organization={currentOrg}
+              onRefreshKnowledge={loadWorkspaceData}
+              onNavigateToKnowledge={() => setActiveTab('knowledge')}
+            />
+          )}
+
           {activeTab === 'analytics' && (
             <AnalyticsView
               calls={calls}
               leads={leads}
               assistants={assistants}
+              onNavigateToKnowledge={() => setActiveTab('knowledge')}
+              onNavigateToImprovements={() => setActiveTab('improvements')}
             />
           )}
 
