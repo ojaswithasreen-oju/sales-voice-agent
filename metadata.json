@@ -1,0 +1,7 @@
+{
+  "name": "VocalPulse AI",
+  "description": "Production Multi-Tenant SaaS Platform for AI-Powered Sales Voice Assistants. Deploy conversational voice agents with telephony, CRM, and real-time sales intelligence.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
