@@ -32,10 +32,134 @@ import {
   Flame,
   Award,
   ChevronRight,
-  Send
+  Send,
+  X,
+  Phone,
+  Palette
 } from 'lucide-react';
 import type { CallRecord, Assistant, HandoffBrief, HandoffTriggerReason, FollowUpTask } from '../types';
 import { api } from '../lib/api';
+
+type SearchScope = 'all' | 'phone' | 'transcript' | 'assistant';
+
+export type TranscriptFontColor = 'indigo' | 'emerald' | 'navy' | 'violet' | 'slate';
+
+interface TranscriptThemeConfig {
+  id: TranscriptFontColor;
+  name: string;
+  dotClass: string;
+  headingColor: string;
+  agentText: string;
+  agentBubble: string;
+  agentBorder: string;
+  agentSpeaker: string;
+  agentTimestamp: string;
+  callerText: string;
+  callerBubble: string;
+  callerBorder: string;
+  callerSpeaker: string;
+  callerTimestamp: string;
+}
+
+const TRANSCRIPT_COLOR_THEMES: Record<TranscriptFontColor, TranscriptThemeConfig> = {
+  indigo: {
+    id: 'indigo',
+    name: 'Royal Indigo',
+    dotClass: 'bg-indigo-600 ring-indigo-400',
+    headingColor: 'text-indigo-950',
+    agentText: 'text-indigo-950 font-medium',
+    agentBubble: 'bg-indigo-50/90',
+    agentBorder: 'border-indigo-200/80',
+    agentSpeaker: 'text-indigo-700 font-semibold',
+    agentTimestamp: 'text-indigo-400 font-mono',
+    callerText: 'text-slate-800',
+    callerBubble: 'bg-slate-100/90',
+    callerBorder: 'border-slate-200/90',
+    callerSpeaker: 'text-slate-700 font-semibold',
+    callerTimestamp: 'text-slate-400 font-mono',
+  },
+  emerald: {
+    id: 'emerald',
+    name: 'Emerald Teal',
+    dotClass: 'bg-emerald-600 ring-emerald-400',
+    headingColor: 'text-emerald-950',
+    agentText: 'text-emerald-950 font-medium',
+    agentBubble: 'bg-emerald-50/90',
+    agentBorder: 'border-emerald-200/80',
+    agentSpeaker: 'text-emerald-700 font-semibold',
+    agentTimestamp: 'text-emerald-500 font-mono',
+    callerText: 'text-stone-800',
+    callerBubble: 'bg-stone-100/90',
+    callerBorder: 'border-stone-200/90',
+    callerSpeaker: 'text-stone-700 font-semibold',
+    callerTimestamp: 'text-stone-400 font-mono',
+  },
+  navy: {
+    id: 'navy',
+    name: 'Deep Navy',
+    dotClass: 'bg-sky-700 ring-sky-400',
+    headingColor: 'text-sky-950',
+    agentText: 'text-sky-950 font-medium',
+    agentBubble: 'bg-sky-50/90',
+    agentBorder: 'border-sky-200/80',
+    agentSpeaker: 'text-sky-800 font-semibold',
+    agentTimestamp: 'text-sky-500 font-mono',
+    callerText: 'text-zinc-800',
+    callerBubble: 'bg-zinc-100/90',
+    callerBorder: 'border-zinc-200/90',
+    callerSpeaker: 'text-zinc-700 font-semibold',
+    callerTimestamp: 'text-zinc-400 font-mono',
+  },
+  violet: {
+    id: 'violet',
+    name: 'Vibrant Violet',
+    dotClass: 'bg-purple-600 ring-purple-400',
+    headingColor: 'text-purple-950',
+    agentText: 'text-purple-950 font-medium',
+    agentBubble: 'bg-purple-50/90',
+    agentBorder: 'border-purple-200/80',
+    agentSpeaker: 'text-purple-700 font-semibold',
+    agentTimestamp: 'text-purple-400 font-mono',
+    callerText: 'text-slate-800',
+    callerBubble: 'bg-slate-100/90',
+    callerBorder: 'border-slate-200/90',
+    callerSpeaker: 'text-slate-700 font-semibold',
+    callerTimestamp: 'text-slate-400 font-mono',
+  },
+  slate: {
+    id: 'slate',
+    name: 'Charcoal Contrast',
+    dotClass: 'bg-slate-900 ring-slate-500',
+    headingColor: 'text-slate-950',
+    agentText: 'text-slate-950 font-semibold',
+    agentBubble: 'bg-slate-150 border-slate-300',
+    agentBorder: 'border-slate-300',
+    agentSpeaker: 'text-slate-900 font-bold',
+    agentTimestamp: 'text-slate-500 font-mono',
+    callerText: 'text-slate-900',
+    callerBubble: 'bg-slate-50 border-slate-200',
+    callerBorder: 'border-slate-200',
+    callerSpeaker: 'text-slate-700 font-semibold',
+    callerTimestamp: 'text-slate-500 font-mono',
+  },
+};
+
+const highlightMatch = (text: string, query: string) => {
+  if (!query || !query.trim()) return text;
+  const trimmed = query.trim();
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    part.toLowerCase() === trimmed.toLowerCase() ? (
+      <mark key={i} className="bg-amber-200 text-amber-950 rounded-xs px-0.5 font-semibold">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+};
 
 interface CallsViewProps {
   calls: CallRecord[];
@@ -51,9 +175,12 @@ export const CallsView: React.FC<CallsViewProps> = ({
   onRefresh,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchScope, setSearchScope] = useState<SearchScope>('all');
   const [selectedSentiment, setSelectedSentiment] = useState<string>('all');
   const [selectedOutcome, setSelectedOutcome] = useState<string>('all');
   const [selectedCallId, setSelectedCallId] = useState<string>(calls[0]?.id || '');
+  const [transcriptFontColor, setTranscriptFontColor] = useState<TranscriptFontColor>('indigo');
+  const currentTranscriptTheme = TRANSCRIPT_COLOR_THEMES[transcriptFontColor] || TRANSCRIPT_COLOR_THEMES.indigo;
 
   // Audio player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -84,7 +211,74 @@ export const CallsView: React.FC<CallsViewProps> = ({
   const [submittingCallback, setSubmittingCallback] = useState(false);
   const [callbackSuccessMsg, setCallbackSuccessMsg] = useState<string | null>(null);
 
-  const selectedCall = calls.find((c) => c.id === selectedCallId) || calls[0];
+  const filteredCalls = calls.filter((c) => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const queryDigits = searchQuery.replace(/\D/g, '');
+
+    const asst = assistants.find((a) => a.id === c.assistantId);
+    const assistantName = (c.assistantName || asst?.name || '').toLowerCase();
+    const callerPhone = (c.callerPhone || '').toLowerCase();
+    const callerNumber = (c.callerNumber || '').toLowerCase();
+    const callerDigits = (c.callerNumber || c.callerPhone || '').replace(/\D/g, '');
+
+    // 1. Caller number match (formatted string or normalized phone digits)
+    const matchesPhone = Boolean(
+      normalizedQuery && (
+        callerPhone.includes(normalizedQuery) ||
+        callerNumber.includes(normalizedQuery) ||
+        (queryDigits.length >= 3 && callerDigits.includes(queryDigits))
+      )
+    );
+
+    // 2. Transcript keywords match across all dialogue turns
+    const matchesTranscript = Boolean(
+      normalizedQuery &&
+      c.transcript &&
+      c.transcript.some((turn) => turn.text.toLowerCase().includes(normalizedQuery))
+    );
+
+    // 3. Assistant name match
+    const matchesAssistant = Boolean(
+      normalizedQuery && assistantName.includes(normalizedQuery)
+    );
+
+    // 4. General match (caller name, company, summary)
+    const matchesGeneral = Boolean(
+      normalizedQuery && (
+        c.callerName.toLowerCase().includes(normalizedQuery) ||
+        c.callerCompany.toLowerCase().includes(normalizedQuery) ||
+        c.summary.toLowerCase().includes(normalizedQuery)
+      )
+    );
+
+    let matchesSearch = true;
+    if (normalizedQuery) {
+      if (searchScope === 'phone') {
+        matchesSearch = matchesPhone;
+      } else if (searchScope === 'transcript') {
+        matchesSearch = matchesTranscript;
+      } else if (searchScope === 'assistant') {
+        matchesSearch = matchesAssistant;
+      } else {
+        // 'all' scope: matches any of caller number, transcript keywords, assistant name, or caller/company/summary
+        matchesSearch = matchesPhone || matchesTranscript || matchesAssistant || matchesGeneral;
+      }
+    }
+
+    const matchesSentiment =
+      selectedSentiment === 'all' || c.sentiment === selectedSentiment || c.aiAnalysis?.sentiment === selectedSentiment;
+
+    const matchesOutcome =
+      selectedOutcome === 'all' ||
+      c.outcome === selectedOutcome ||
+      (selectedOutcome === 'handoff' && (c.outcome === 'transferred' || c.outcome === 'callback_requested' || c.handoffBrief));
+
+    return matchesSearch && matchesSentiment && matchesOutcome;
+  });
+
+  const selectedCall =
+    filteredCalls.find((c) => c.id === selectedCallId) ||
+    (filteredCalls.length > 0 ? filteredCalls[0] : null);
 
   useEffect(() => {
     // Load available reps for live transfer
@@ -100,27 +294,9 @@ export const CallsView: React.FC<CallsViewProps> = ({
 
   useEffect(() => {
     if (selectedCall) {
-      setCallbackPhone(selectedCall.callerPhone || '');
+      setCallbackPhone(selectedCall.callerPhone || selectedCall.callerNumber || '');
     }
   }, [selectedCall]);
-
-  const filteredCalls = calls.filter((c) => {
-    const matchesSearch =
-      c.callerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.callerCompany.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.callerPhone.includes(searchQuery) ||
-      c.summary.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesSentiment =
-      selectedSentiment === 'all' || c.sentiment === selectedSentiment || c.aiAnalysis?.sentiment === selectedSentiment;
-
-    const matchesOutcome =
-      selectedOutcome === 'all' ||
-      c.outcome === selectedOutcome ||
-      (selectedOutcome === 'handoff' && (c.outcome === 'transferred' || c.outcome === 'callback_requested' || c.handoffBrief));
-
-    return matchesSearch && matchesSentiment && matchesOutcome;
-  });
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -246,10 +422,93 @@ export const CallsView: React.FC<CallsViewProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search caller name, company, or keywords..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                placeholder="Search caller number, transcript keywords, or assistant name..."
+                className="w-full pl-9 pr-9 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none placeholder:text-slate-400"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2 p-0.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
+
+            {/* Scope Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <span className="text-[11px] font-semibold text-slate-400 mr-0.5">Search in:</span>
+              <button
+                type="button"
+                onClick={() => setSearchScope('all')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${
+                  searchScope === 'all'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All Fields
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchScope('phone')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                  searchScope === 'phone'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Phone className="w-3 h-3" />
+                <span>Caller #</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchScope('transcript')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                  searchScope === 'transcript'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <MessageSquare className="w-3 h-3" />
+                <span>Transcript</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchScope('assistant')}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
+                  searchScope === 'assistant'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Bot className="w-3 h-3" />
+                <span>Assistant</span>
+              </button>
+            </div>
+
+            {/* Results count & status when searching */}
+            {searchQuery.trim() && (
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                <span>
+                  Found <strong className="text-slate-900 font-semibold">{filteredCalls.length}</strong> {filteredCalls.length === 1 ? 'call' : 'calls'}
+                  {searchScope !== 'all' ? ` in ${searchScope}` : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchScope('all');
+                  }}
+                  className="text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
               <span className="text-[11px] font-semibold text-slate-500">Filter:</span>
@@ -289,70 +548,128 @@ export const CallsView: React.FC<CallsViewProps> = ({
 
           {/* Calls List Scrollable */}
           <div className="space-y-3">
-            {filteredCalls.map((call) => {
-              const isSelected = call.id === selectedCall?.id;
-              const asst = assistants.find((a) => a.id === call.assistantId);
-              const hasHandoff = Boolean(call.handoffBrief || call.outcome === 'transferred' || call.outcome === 'callback_requested');
-
-              return (
-                <div
-                  key={call.id}
-                  onClick={() => setSelectedCallId(call.id)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-white border-indigo-600 shadow-md ring-2 ring-indigo-500/10'
-                      : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-1.5">
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <span>{call.callerName}</span>
-                        <span className="text-slate-400 font-normal">({call.callerCompany})</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        {call.callerPhone} &bull; Agent: {asst?.name || 'Sales Agent'}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          (call.aiAnalysis?.buyingInterestScore || 0) >= 85
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : (call.aiAnalysis?.buyingInterestScore || 0) >= 50
-                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {call.aiAnalysis?.buyingInterestScore || 80}/100 Intent
-                      </span>
-
-                      {hasHandoff && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-100 text-amber-800 flex items-center gap-0.5">
-                          <PhoneForwarded className="w-2.5 h-2.5" />
-                          <span>Handoff</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-600 line-clamp-2 mt-2 leading-relaxed">
-                    {call.summary}
-                  </p>
-
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{call.audioDuration}</span>
-                    </span>
-                    <span className="capitalize font-semibold text-slate-600">
-                      {String(call.outcome || call.status || 'completed').replace(/_/g, ' ')}
-                    </span>
-                  </div>
+            {filteredCalls.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <Search className="w-5 h-5" />
                 </div>
-              );
-            })}
+                <h4 className="text-xs font-bold text-slate-800">No Call Records Found</h4>
+                <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                  {searchQuery.trim()
+                    ? `No calls match "${searchQuery}". Try searching by caller number (e.g. +1 415), transcript keywords (e.g. pricing, volume discount, demo), or assistant name.`
+                    : 'No calls match the selected filters.'}
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchScope('all');
+                      setSelectedOutcome('all');
+                      setSelectedSentiment('all');
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              </div>
+            ) : (
+              filteredCalls.map((call) => {
+                const isSelected = call.id === selectedCall?.id;
+                const asst = assistants.find((a) => a.id === call.assistantId);
+                const assistantDisplayName = call.assistantName || asst?.name || 'Sales Agent';
+                const hasHandoff = Boolean(call.handoffBrief || call.outcome === 'transferred' || call.outcome === 'callback_requested');
+                const normalizedQuery = searchQuery.trim().toLowerCase();
+
+                // Specific match checks for feedback tags
+                const matchedTurn = normalizedQuery && call.transcript
+                  ? call.transcript.find((t) => t.text.toLowerCase().includes(normalizedQuery))
+                  : null;
+                const matchedPhone = normalizedQuery && (
+                  (call.callerPhone && call.callerPhone.toLowerCase().includes(normalizedQuery)) ||
+                  (call.callerNumber && call.callerNumber.toLowerCase().includes(normalizedQuery)) ||
+                  (searchQuery.replace(/\D/g, '').length >= 3 && (call.callerNumber || call.callerPhone || '').replace(/\D/g, '').includes(searchQuery.replace(/\D/g, '')))
+                );
+                const matchedAssistant = normalizedQuery && assistantDisplayName.toLowerCase().includes(normalizedQuery);
+
+                return (
+                  <div
+                    key={call.id}
+                    onClick={() => setSelectedCallId(call.id)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-white border-indigo-600 shadow-md ring-2 ring-indigo-500/10'
+                        : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                          <span>{call.callerName}</span>
+                          <span className="text-slate-400 font-normal">({call.callerCompany})</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          <span className={matchedPhone ? 'text-indigo-700 font-bold bg-indigo-50 px-1 rounded' : ''}>
+                            {call.callerPhone || call.callerNumber}
+                          </span>
+                          {' '}&bull; Agent:{' '}
+                          <span className={matchedAssistant ? 'text-indigo-700 font-bold bg-indigo-50 px-1 rounded' : ''}>
+                            {assistantDisplayName}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            (call.aiAnalysis?.buyingInterestScore || 0) >= 85
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : (call.aiAnalysis?.buyingInterestScore || 0) >= 50
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {call.aiAnalysis?.buyingInterestScore || 80}/100 Intent
+                        </span>
+
+                        {hasHandoff && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-100 text-amber-800 flex items-center gap-0.5">
+                            <PhoneForwarded className="w-2.5 h-2.5" />
+                            <span>Handoff</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Matched in Transcript snippet callout */}
+                    {matchedTurn && (
+                      <div className="mt-2 p-2 bg-amber-50/70 border border-amber-200/80 rounded-xl text-[11px] text-amber-950 flex items-start gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0" />
+                        <div className="line-clamp-2">
+                          <span className="font-semibold text-amber-800">Transcript keyword match: </span>
+                          <span className="italic">"{highlightMatch(matchedTurn.text, searchQuery)}"</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-slate-600 line-clamp-2 mt-2 leading-relaxed">
+                      {call.summary}
+                    </p>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{call.audioDuration}</span>
+                      </span>
+                      <span className="capitalize font-semibold text-slate-600">
+                        {String(call.outcome || call.status || 'completed').replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -585,34 +902,99 @@ export const CallsView: React.FC<CallsViewProps> = ({
 
             {/* Turn-by-Turn Dialogue Transcript */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900">Turn-by-Turn Transcript</h3>
-                <span className="text-[11px] font-mono text-slate-400">
-                  {selectedCall.transcript.length} turns recorded
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-sm font-bold ${currentTranscriptTheme.headingColor} transition-colors tracking-tight`}>
+                        Turn-by-Turn Transcript
+                      </h3>
+                      {searchQuery.trim() && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                          Keyword: "{searchQuery.trim()}"
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {selectedCall.transcript.length} turns recorded
+                    </span>
+                  </div>
+                </div>
+
+                {/* Font Color Theme Selector */}
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Font Color:</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {(Object.keys(TRANSCRIPT_COLOR_THEMES) as TranscriptFontColor[]).map((themeKey) => {
+                      const theme = TRANSCRIPT_COLOR_THEMES[themeKey];
+                      const isSelected = transcriptFontColor === themeKey;
+                      return (
+                        <button
+                          key={themeKey}
+                          type="button"
+                          onClick={() => setTranscriptFontColor(themeKey)}
+                          title={`Switch font color to ${theme.name}`}
+                          className={`w-4 h-4 rounded-full transition-all cursor-pointer flex items-center justify-center ${theme.dotClass} ${
+                            isSelected
+                              ? 'scale-125 ring-2 ring-offset-2 ring-indigo-500 shadow-xs'
+                              : 'opacity-65 hover:opacity-100 hover:scale-110'
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 ml-1 pl-1.5 border-l border-slate-200">
+                    {currentTranscriptTheme.name}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-3.5 max-h-80 overflow-y-auto pr-2">
-                {selectedCall.transcript.map((t, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${t.speaker === 'customer' || t.speaker === 'caller' ? 'justify-start' : 'justify-end'}`}
-                  >
+                {selectedCall.transcript.map((t, idx) => {
+                  const isCaller = t.speaker === 'customer' || t.speaker === 'caller';
+                  const hasKeywordMatch = searchQuery.trim() && t.text.toLowerCase().includes(searchQuery.trim().toLowerCase());
+                  return (
                     <div
-                      className={`max-w-[88%] p-3.5 rounded-2xl text-xs leading-relaxed ${
-                        t.speaker === 'customer' || t.speaker === 'caller'
-                          ? 'bg-slate-100 text-slate-900 rounded-bl-none'
-                          : 'bg-indigo-50 border border-indigo-100 text-slate-900 rounded-br-none'
-                      }`}
+                      key={idx}
+                      className={`flex ${isCaller ? 'justify-start' : 'justify-end'}`}
                     >
-                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                        <span>{t.speaker === 'customer' || t.speaker === 'caller' ? selectedCall.callerName : 'AI Voice Agent'}</span>
-                        <span>{t.timestamp}</span>
+                      <div
+                        className={`max-w-[88%] p-3.5 rounded-2xl text-xs leading-relaxed transition-all border shadow-2xs ${
+                          hasKeywordMatch ? 'ring-2 ring-amber-400 shadow-xs ' : ''
+                        }${
+                          isCaller
+                            ? `${currentTranscriptTheme.callerBubble} ${currentTranscriptTheme.callerBorder} ${currentTranscriptTheme.callerText} rounded-bl-none`
+                            : `${currentTranscriptTheme.agentBubble} ${currentTranscriptTheme.agentBorder} ${currentTranscriptTheme.agentText} rounded-br-none`
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-[10px] font-bold mb-1.5 gap-2">
+                          <span className="flex items-center gap-1.5">
+                            <span className={isCaller ? currentTranscriptTheme.callerSpeaker : currentTranscriptTheme.agentSpeaker}>
+                              {isCaller ? selectedCall.callerName : 'AI Voice Agent'}
+                            </span>
+                            {hasKeywordMatch && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-200 text-amber-900">
+                                Match
+                              </span>
+                            )}
+                          </span>
+                          <span className={isCaller ? currentTranscriptTheme.callerTimestamp : currentTranscriptTheme.agentTimestamp}>
+                            {t.timestamp}
+                          </span>
+                        </div>
+                        <div className={`font-normal ${isCaller ? currentTranscriptTheme.callerText : currentTranscriptTheme.agentText}`}>
+                          {highlightMatch(t.text, searchQuery)}
+                        </div>
                       </div>
-                      <div>{t.text}</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

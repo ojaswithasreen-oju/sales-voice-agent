@@ -369,17 +369,89 @@ export interface TeamMember {
   lastActive: string;
 }
 
+export interface Customer {
+  id: string;
+  tenantId: string;
+  name: string;
+  email?: string;
+  phone: string;
+  company?: string;
+  jobTitle?: string;
+  industry?: string;
+  notes?: string;
+  lifetimeValue?: number;
+  createdAt: string;
+}
+
+export interface Appointment {
+  id: string;
+  tenantId: string;
+  callId?: string;
+  customerId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  googleEventId?: string;
+  meetingLink?: string;
+  status: 'confirmed' | 'completed' | 'cancelled' | 'rescheduled';
+  createdAt: string;
+}
+
+export type IntegrationProvider =
+  | 'gemini'
+  | 'firebase'
+  | 'supabase'
+  | 'twilio'
+  | 'vapi'
+  | 'retell'
+  | 'elevenlabs'
+  | 'resend'
+  | 'sendgrid'
+  | 'google_calendar'
+  | 'stripe'
+  | 'n8n'
+  | 'hubspot'
+  | 'salesforce'
+  | 'slack'
+  | 'webhooks';
+
+export type IntegrationCategory =
+  | 'AI'
+  | 'Auth'
+  | 'Database'
+  | 'Voice'
+  | 'Email'
+  | 'Calendar'
+  | 'Billing'
+  | 'Automation'
+  | 'CRM'
+  | 'Telephony'
+  | 'Messaging'
+  | 'Webhooks';
+
+export type IntegrationStatusState = 'connected' | 'config_required' | 'connection_failed' | 'disconnected' | 'disabled' | 'error';
+
 export interface IntegrationItem {
   id: string;
   tenantId: string;
-  provider: 'hubspot' | 'salesforce' | 'google_calendar' | 'twilio' | 'sendgrid' | 'whatsapp' | 'slack' | 'webhooks';
+  provider: IntegrationProvider;
   name: string;
-  category: 'CRM' | 'Calendar' | 'Telephony' | 'Messaging' | 'Webhooks';
-  status: 'connected' | 'disconnected' | 'error';
+  category: IntegrationCategory;
+  status: IntegrationStatusState;
   lastSync?: string;
   description: string;
   icon: string;
   connected?: boolean;
+  envVarsRequired?: string[];
+  lastTestedAt?: string;
+  errorMessage?: string;
+  testLatencyMs?: number;
+  config?: Record<string, any>;
 }
 
 export type Integration = IntegrationItem;

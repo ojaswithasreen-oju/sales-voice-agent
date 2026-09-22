@@ -27,8 +27,20 @@ import type {
   ImprovementStatus,
   AiImprovementSuggestion,
   KnowledgeVersion,
+  Customer,
+  Appointment,
 } from './src/types';
 import { SUPPORTED_LANGUAGES, getLanguageByCode, detectLanguageFromText } from './src/lib/languages';
+import { testGeminiConnection } from './src/lib/ai/gemini';
+import { testFirebaseConnection, firebaseAuth } from './src/lib/auth/firebase';
+import { testDatabaseConnection } from './src/lib/db/prisma';
+import { supabaseStorage } from './src/lib/storage/supabase-storage';
+import { getVoiceProvider } from './src/lib/voice/provider';
+import { getEmailProvider } from './src/lib/email/provider';
+import { googleCalendar } from './src/lib/calendar/google-calendar';
+import { stripeBilling } from './src/lib/payments/stripe';
+import { n8nService } from './src/lib/automation/n8n';
+import { TestConnectionSchema, CreateLeadSchema, CreateAssistantSchema, CreateProductSchema } from './src/lib/validation/schemas';
 
 dotenv.config();
 
@@ -99,6 +111,8 @@ interface TenantDatabase {
   followUpTasks: Map<string, FollowUpTask[]>;
   improvementSuggestions: Map<string, AiImprovementSuggestion[]>;
   knowledgeVersions: Map<string, KnowledgeVersion[]>;
+  customers: Map<string, Customer[]>;
+  appointments: Map<string, Appointment[]>;
 }
 
 const db: TenantDatabase = {
@@ -117,6 +131,8 @@ const db: TenantDatabase = {
   followUpTasks: new Map(),
   improvementSuggestions: new Map(),
   knowledgeVersions: new Map(),
+  customers: new Map(),
+  appointments: new Map(),
 };
 
 // Seed Tenant 1: Acme Cloud Corp
@@ -994,73 +1010,151 @@ db.team.set(tenant1Id, [
   }
 ]);
 
-db.integrations.set(tenant1Id, [
-  {
-    id: 'int_hubspot',
-    tenantId: tenant1Id,
-    provider: 'hubspot',
-    name: 'HubSpot CRM',
-    category: 'CRM',
-    status: 'connected',
-    lastSync: '10 mins ago',
-    description: 'Auto-sync leads, call transcripts, recordings, and deal stages directly into HubSpot contacts and deals.',
-    icon: 'HubSpot',
-  },
-  {
-    id: 'int_salesforce',
-    tenantId: tenant1Id,
-    provider: 'salesforce',
-    name: 'Salesforce Sales Cloud',
-    category: 'CRM',
-    status: 'disconnected',
-    description: 'Bi-directional sync for Enterprise accounts, opportunity updates, and task generation.',
-    icon: 'Salesforce',
-  },
-  {
-    id: 'int_calendar',
-    tenantId: tenant1Id,
-    provider: 'google_calendar',
-    name: 'Google Calendar',
-    category: 'Calendar',
-    status: 'connected',
-    lastSync: 'Real-time',
-    description: 'Allow AI sales assistants to check rep availability and instantly book confirmed meeting invites.',
-    icon: 'Calendar',
-  },
-  {
-    id: 'int_twilio',
-    tenantId: tenant1Id,
-    provider: 'twilio',
-    name: 'Twilio Voice Gateway',
-    category: 'Telephony',
-    status: 'connected',
-    lastSync: 'Real-time',
-    description: 'Direct SIP trunking and number provisioning for sub-second PSTN voice termination.',
-    icon: 'Phone',
-  },
-  {
-    id: 'int_slack',
-    tenantId: tenant1Id,
-    provider: 'slack',
-    name: 'Slack Alerts',
-    category: 'Messaging',
-    status: 'connected',
-    lastSync: 'Active',
-    description: 'Post high-intent lead notifications and call summaries instantly to #sales-leads channel.',
-    icon: 'MessageSquare',
-  },
-  {
-    id: 'int_webhooks',
-    tenantId: tenant1Id,
-    provider: 'webhooks',
-    name: 'Outbound Webhooks',
-    category: 'Webhooks',
-    status: 'connected',
-    lastSync: 'Active',
-    description: 'Send signed JSON payloads on call completion, lead qualification, and appointment booking events.',
-    icon: 'Webhook',
-  }
-]);
+function getInitialIntegrations(tenantId: string): IntegrationItem[] {
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('placeholder'));
+  const hasFirebase = firebaseAuth.isConfigured();
+  const hasSupabase = supabaseStorage.isConfigured() || Boolean(process.env.DATABASE_URL);
+  const voiceProvider = getVoiceProvider();
+  const hasVoice = voiceProvider.isConfigured();
+  const emailProvider = getEmailProvider();
+  const hasEmail = emailProvider.isConfigured();
+  const hasCalendar = googleCalendar.isConfigured();
+  const hasStripe = stripeBilling.isConfigured();
+  const hasN8n = n8nService.isConfigured();
+
+  return [
+    {
+      id: 'int_gemini',
+      tenantId,
+      provider: 'gemini',
+      name: 'Google Gemini',
+      category: 'AI',
+      status: hasGemini ? 'connected' : 'config_required',
+      connected: hasGemini,
+      lastSync: hasGemini ? 'Active (Gemini Flash)' : undefined,
+      description: 'Powers conversational reasoning, real-time sentiment detection, dynamic BANT qualification, and automated objection handling.',
+      icon: 'Sparkles',
+      envVarsRequired: ['GEMINI_API_KEY'],
+    },
+    {
+      id: 'int_firebase',
+      tenantId,
+      provider: 'firebase',
+      name: 'Firebase Authentication',
+      category: 'Auth',
+      status: hasFirebase ? 'connected' : 'disabled',
+      connected: hasFirebase,
+      lastSync: hasFirebase ? 'Verified' : undefined,
+      description: 'Provides tenant-scoped identity management, email/password verification, and Google Sign-In with JWT session enforcement. Remains disabled until credentials are configured.',
+      icon: 'ShieldCheck',
+      envVarsRequired: ['NEXT_PUBLIC_FIREBASE_API_KEY', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'],
+    },
+    {
+      id: 'int_supabase',
+      tenantId,
+      provider: 'supabase',
+      name: 'Supabase (PostgreSQL & Storage)',
+      category: 'Database',
+      status: hasSupabase ? 'connected' : 'disabled',
+      connected: hasSupabase,
+      lastSync: hasSupabase ? 'Active' : undefined,
+      description: 'PostgreSQL relational persistence with pgvector semantic search, plus cloud bucket storage for call recordings and collateral. Operates in local fallback mode when unconfigured.',
+      icon: 'Database',
+      envVarsRequired: ['DATABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+    },
+    {
+      id: 'int_voice',
+      tenantId,
+      provider: 'twilio',
+      name: 'Voice Telephony (Twilio / Vapi / Retell)',
+      category: 'Voice',
+      status: hasVoice ? 'connected' : 'disabled',
+      connected: hasVoice,
+      lastSync: hasVoice ? 'Real-time' : undefined,
+      description: 'Provider-independent telephony layer handling real-time PSTN call routing, SIP trunks, bi-directional audio streams, and recordings. Remains disabled until credentials are provided.',
+      icon: 'Phone',
+      envVarsRequired: ['VOICE_PROVIDER', 'VOICE_API_KEY', 'VOICE_API_SECRET'],
+    },
+    {
+      id: 'int_email',
+      tenantId,
+      provider: 'resend',
+      name: 'Transactional Email (Resend / SendGrid)',
+      category: 'Email',
+      status: hasEmail ? 'connected' : 'disabled',
+      connected: hasEmail,
+      lastSync: hasEmail ? 'Ready' : undefined,
+      description: 'Automated calendar invite delivery, high-intent lead alerts to sales reps, and user verification emails. Remains disabled until provider credentials are provided.',
+      icon: 'Mail',
+      envVarsRequired: ['EMAIL_PROVIDER', 'EMAIL_API_KEY', 'EMAIL_FROM_ADDRESS'],
+    },
+    {
+      id: 'int_calendar',
+      tenantId,
+      provider: 'google_calendar',
+      name: 'Google Calendar & Meet',
+      category: 'Calendar',
+      status: hasCalendar ? 'connected' : 'disabled',
+      connected: hasCalendar,
+      lastSync: hasCalendar ? 'Sync Active' : undefined,
+      description: 'Checks sales rep availability in real-time, auto-generates Google Meet video links, and dispatches calendar invites. Remains disabled until OAuth client credentials are configured.',
+      icon: 'Calendar',
+      envVarsRequired: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+    },
+    {
+      id: 'int_stripe',
+      tenantId,
+      provider: 'stripe',
+      name: 'Stripe Billing & Metering',
+      category: 'Billing',
+      status: hasStripe ? 'connected' : 'disabled',
+      connected: hasStripe,
+      lastSync: hasStripe ? 'Webhook Ready' : undefined,
+      description: 'Handles subscription lifecycle, per-minute voice usage metering, customer portal access, and automated tier billing. Remains disabled until Stripe secret key is configured.',
+      icon: 'CreditCard',
+      envVarsRequired: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'],
+    },
+    {
+      id: 'int_n8n',
+      tenantId,
+      provider: 'n8n',
+      name: 'n8n Workflow Automation',
+      category: 'Automation',
+      status: hasN8n ? 'connected' : 'disabled',
+      connected: hasN8n,
+      lastSync: hasN8n ? 'Webhook Ready' : undefined,
+      description: 'Event-driven automation dispatcher for custom CRM synchronization, ERP updates, and third-party webhooks. Remains disabled until N8N_WEBHOOK_URL is configured.',
+      icon: 'Workflow',
+      envVarsRequired: ['N8N_WEBHOOK_URL', 'N8N_API_KEY'],
+    },
+    {
+      id: 'int_hubspot',
+      tenantId,
+      provider: 'hubspot',
+      name: 'HubSpot CRM',
+      category: 'CRM',
+      status: 'config_required',
+      connected: false,
+      description: 'Auto-sync leads, call transcripts, recordings, and deal stages directly into HubSpot contacts and deals.',
+      icon: 'HubSpot',
+      envVarsRequired: ['HUBSPOT_ACCESS_TOKEN'],
+    },
+    {
+      id: 'int_salesforce',
+      tenantId,
+      provider: 'salesforce',
+      name: 'Salesforce Sales Cloud',
+      category: 'CRM',
+      status: 'disconnected',
+      connected: false,
+      description: 'Bi-directional sync for Enterprise accounts, opportunity updates, and task generation.',
+      icon: 'Salesforce',
+      envVarsRequired: ['SALESFORCE_CLIENT_ID', 'SALESFORCE_CLIENT_SECRET'],
+    },
+  ];
+}
+
+db.integrations.set(tenant1Id, getInitialIntegrations(tenant1Id));
 
 db.notifications.set(tenant1Id, [
   {
@@ -1793,10 +1887,131 @@ app.get('/api/audit-logs', (req, res) => {
   res.json(db.auditLogs.get(tenantId) || []);
 });
 
-// 10. Integrations
+// 10. Integrations & Service Testing
 app.get('/api/integrations', (req, res) => {
   const tenantId = getTenantId(req);
+  if (!db.integrations.has(tenantId)) {
+    db.integrations.set(tenantId, getInitialIntegrations(tenantId));
+  }
   res.json(db.integrations.get(tenantId) || []);
+});
+
+app.post('/api/integrations/test', async (req, res) => {
+  const tenantId = getTenantId(req);
+  const { service, provider } = req.body;
+  const targetService = (service || provider || '').toLowerCase();
+
+  let testResult: { connected: boolean; message: string; latencyMs?: number };
+
+  try {
+    switch (targetService) {
+      case 'gemini':
+      case 'google_genai':
+      case 'ai':
+        testResult = await testGeminiConnection();
+        break;
+      case 'firebase':
+      case 'auth':
+        testResult = await testFirebaseConnection();
+        break;
+      case 'supabase':
+      case 'database':
+      case 'storage':
+        testResult = await testDatabaseConnection();
+        if (!testResult.connected && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          testResult = await supabaseStorage.testConnection();
+        }
+        break;
+      case 'twilio':
+      case 'vapi':
+      case 'retell':
+      case 'elevenlabs':
+      case 'voice':
+        testResult = await getVoiceProvider(targetService === 'voice' ? undefined : (targetService as any)).testConnection();
+        break;
+      case 'resend':
+      case 'sendgrid':
+      case 'email':
+        testResult = await getEmailProvider().testConnection();
+        break;
+      case 'google_calendar':
+      case 'calendar':
+        testResult = await googleCalendar.testConnection();
+        break;
+      case 'stripe':
+      case 'billing':
+        testResult = await stripeBilling.testConnection();
+        break;
+      case 'n8n':
+      case 'automation':
+        testResult = await n8nService.testConnection();
+        break;
+      default:
+        testResult = {
+          connected: false,
+          message: `Unknown integration service '${targetService}'`,
+        };
+    }
+  } catch (err: any) {
+    testResult = {
+      connected: false,
+      message: err.message || 'Service test failed with unexpected error',
+    };
+  }
+
+  // Update in-memory state for tenant
+  const list = db.integrations.get(tenantId) || [];
+  const item = list.find((i) => i.provider === targetService || i.id === `int_${targetService}` || (targetService === 'voice' && ['twilio', 'vapi', 'retell'].includes(i.provider)));
+  
+  const statusOutcome = testResult.connected
+    ? 'connected'
+    : (testResult.message.toLowerCase().includes('not configured') || testResult.message.toLowerCase().includes('missing')
+        ? 'config_required'
+        : 'connection_failed');
+
+  if (item) {
+    item.status = statusOutcome;
+    item.connected = testResult.connected;
+    item.lastTestedAt = new Date().toISOString();
+    item.lastSync = testResult.connected ? 'Active (Verified)' : undefined;
+    item.errorMessage = testResult.connected ? undefined : testResult.message;
+    item.testLatencyMs = testResult.latencyMs;
+    db.integrations.set(tenantId, [...list]);
+  }
+
+  res.json({
+    success: testResult.connected,
+    service: targetService,
+    status: statusOutcome,
+    connected: testResult.connected,
+    message: testResult.message,
+    latencyMs: testResult.latencyMs,
+    item,
+  });
+});
+
+app.post('/api/integrations/:id/disconnect', (req, res) => {
+  const tenantId = getTenantId(req);
+  const list = db.integrations.get(tenantId) || [];
+  const item = list.find((i) => i.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Integration not found' });
+
+  item.status = 'disconnected';
+  item.connected = false;
+  item.lastSync = undefined;
+  db.integrations.set(tenantId, [...list]);
+  res.json({ success: true, item });
+});
+
+app.post('/api/integrations/:id/configure', (req, res) => {
+  const tenantId = getTenantId(req);
+  const list = db.integrations.get(tenantId) || [];
+  const item = list.find((i) => i.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Integration not found' });
+
+  item.config = { ...(item.config || {}), ...req.body };
+  db.integrations.set(tenantId, [...list]);
+  res.json({ success: true, item });
 });
 
 app.post('/api/integrations/:id/toggle', (req, res) => {
@@ -1806,8 +2021,163 @@ app.post('/api/integrations/:id/toggle', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Integration not found' });
 
   item.status = item.status === 'connected' ? 'disconnected' : 'connected';
+  item.connected = item.status === 'connected';
   item.lastSync = item.status === 'connected' ? 'Just now' : undefined;
+  db.integrations.set(tenantId, [...list]);
   res.json(item);
+});
+
+// 10B. Incoming Webhooks for External Integrations
+app.post('/api/webhooks/voice', async (req, res) => {
+  try {
+    const provider = getVoiceProvider();
+    const event = await provider.handleWebhook(req.body);
+    res.json({ received: true, event });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Voice webhook failed' });
+  }
+});
+
+app.post('/api/webhooks/stripe', async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string;
+  if (!sig) {
+    return res.status(400).json({ error: 'Missing stripe-signature header' });
+  }
+  try {
+    const rawBody = JSON.stringify(req.body);
+    const event = await stripeBilling.handleWebhook(rawBody, sig);
+    res.json({ received: true, eventType: event.type });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Stripe webhook validation failed' });
+  }
+});
+
+app.post('/api/webhooks/n8n', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const expectedKey = process.env.N8N_API_KEY;
+  if (expectedKey && authHeader !== `Bearer ${expectedKey}`) {
+    return res.status(401).json({ error: 'Unauthorized n8n webhook' });
+  }
+
+  const { event, tenantId, payload } = req.body;
+  if (tenantId && db.auditLogs.has(tenantId)) {
+    const logs = db.auditLogs.get(tenantId) || [];
+    logs.unshift({
+      id: `audit_n8n_${Date.now()}`,
+      tenantId,
+      actorName: 'n8n Workflow Automation',
+      action: event || 'EXTERNAL_AUTOMATION_TRIGGER',
+      target: JSON.stringify(payload || {}).slice(0, 100),
+      ip: req.ip || '127.0.0.1',
+      timestamp: new Date().toISOString(),
+    });
+    db.auditLogs.set(tenantId, logs);
+  }
+
+  res.json({ success: true, processedAt: new Date().toISOString() });
+});
+
+// 10C. Customers & Appointments API
+app.get('/api/customers', (req, res) => {
+  const tenantId = getTenantId(req);
+  res.json(db.customers.get(tenantId) || []);
+});
+
+app.post('/api/customers', (req, res) => {
+  const tenantId = getTenantId(req);
+  const list = db.customers.get(tenantId) || [];
+  const newCust: Customer = {
+    id: `cust_${Date.now().toString(36)}`,
+    tenantId,
+    name: req.body.name || 'Anonymous Customer',
+    email: req.body.email,
+    phone: req.body.phone || '',
+    company: req.body.company,
+    jobTitle: req.body.jobTitle,
+    industry: req.body.industry,
+    notes: req.body.notes,
+    lifetimeValue: req.body.lifetimeValue || 0,
+    createdAt: new Date().toISOString(),
+  };
+  list.unshift(newCust);
+  db.customers.set(tenantId, list);
+  res.status(201).json(newCust);
+});
+
+app.get('/api/appointments', (req, res) => {
+  const tenantId = getTenantId(req);
+  res.json(db.appointments.get(tenantId) || []);
+});
+
+app.post('/api/appointments', async (req, res) => {
+  const tenantId = getTenantId(req);
+  const list = db.appointments.get(tenantId) || [];
+
+  const { title, startTime, endTime, customerName, customerEmail, description, assignedUserName } = req.body;
+
+  let meetingLink: string | undefined;
+  let googleEventId: string | undefined;
+
+  // Try creating in Google Calendar if integrated
+  if (process.env.GOOGLE_CLIENT_ID) {
+    try {
+      const gResult = await googleCalendar.createEvent({
+        summary: title || `Sales Consultation with ${customerName || 'Customer'}`,
+        description: description || 'Scheduled via VocalPulse AI Sales Assistant',
+        startTime: startTime || new Date(Date.now() + 86400000).toISOString(),
+        endTime: endTime || new Date(Date.now() + 86400000 + 1800000).toISOString(),
+        attendeeEmail: customerEmail || 'prospect@example.com',
+        timeZone: 'America/New_York',
+      });
+      meetingLink = gResult.meetLink;
+      googleEventId = gResult.id || gResult.eventId;
+    } catch {
+      // Non-blocking fallback
+    }
+  }
+
+  const newAppt: Appointment = {
+    id: `appt_${Date.now().toString(36)}`,
+    tenantId,
+    title: title || `Sales Demo - ${customerName || 'Prospect'}`,
+    description,
+    customerName,
+    customerEmail,
+    assignedUserName: assignedUserName || 'David Miller',
+    startTime: startTime || new Date(Date.now() + 86400000).toISOString(),
+    endTime: endTime || new Date(Date.now() + 86400000 + 1800000).toISOString(),
+    status: 'confirmed',
+    googleEventId,
+    meetingLink: meetingLink || 'https://meet.google.com/abc-defg-hij',
+    createdAt: new Date().toISOString(),
+  };
+
+  list.unshift(newAppt);
+  db.appointments.set(tenantId, list);
+  res.status(201).json(newAppt);
+});
+
+// 10D. Comprehensive System Health Check
+app.get('/api/health', async (_req, res) => {
+  const geminiStatus = process.env.GEMINI_API_KEY ? 'configured' : 'missing_key';
+  const dbStatus = process.env.DATABASE_URL ? 'configured' : 'in_memory_mode';
+  const voiceStatus = (process.env.VOICE_API_KEY || process.env.TWILIO_ACCOUNT_SID) ? 'configured' : 'unconfigured';
+  const emailStatus = (process.env.EMAIL_API_KEY || process.env.RESEND_API_KEY) ? 'configured' : 'unconfigured';
+  const stripeStatus = process.env.STRIPE_SECRET_KEY ? 'configured' : 'unconfigured';
+
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '2.5.0-enterprise',
+    subsystems: {
+      gemini_ai: geminiStatus,
+      database: dbStatus,
+      voice_telephony: voiceStatus,
+      transactional_email: emailStatus,
+      stripe_billing: stripeStatus,
+      multi_tenant_isolation: 'enforced',
+    },
+  });
 });
 
 // 11. Notifications

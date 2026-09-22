@@ -272,6 +272,63 @@ export const api = {
     });
   },
 
+  async testIntegration(serviceOrProvider: string) {
+    return request<{
+      success: boolean;
+      service: string;
+      status: 'connected' | 'config_required' | 'connection_failed';
+      connected: boolean;
+      message: string;
+      latencyMs?: number;
+      item?: IntegrationItem;
+    }>('/api/integrations/test', {
+      method: 'POST',
+      body: JSON.stringify({ service: serviceOrProvider }),
+    });
+  },
+
+  async disconnectIntegration(id: string) {
+    return request<{ success: boolean; item: IntegrationItem }>(`/api/integrations/${id}/disconnect`, {
+      method: 'POST',
+    });
+  },
+
+  async configureIntegration(id: string, config: Record<string, any>) {
+    return request<{ success: boolean; item: IntegrationItem }>(`/api/integrations/${id}/configure`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  },
+
+  // Appointments & Calendar
+  async getAppointments() {
+    return request<any[]>('/api/appointments');
+  },
+
+  async createAppointment(data: any) {
+    return request<any>('/api/appointments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Customers
+  async getCustomers() {
+    return request<any[]>('/api/customers');
+  },
+
+  async createCustomer(data: any) {
+    return request<any>('/api/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // System Health
+  async getHealth() {
+    return request<any>('/api/health');
+  },
+
   // Notifications
   async getNotifications() {
     return request<NotificationItem[]>('/api/notifications');

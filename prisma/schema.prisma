@@ -1,0 +1,484 @@
+// Prisma Schema for Multi-Tenant AI Sales Voice Assistant SaaS
+// Target Database: PostgreSQL (Supabase) with pgvector support
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  SALES_MANAGER
+  SALES_REP
+  VIEWER
+}
+
+enum PlanTier {
+  TRIAL
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum CallStatus {
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  TRANSFERRED
+  FAILED
+  MISSED
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DEMO_SCHEDULED
+  NEGOTIATION
+  CONVERTED
+  LOST
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  CONFIG_REQUIRED
+  FAILED
+  DISCONNECTED
+}
+
+model Organization {
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  industry           String?
+  size               String?
+  phone              String?
+  website            String?
+  plan               PlanTier             @default(PRO)
+  minutesUsed        Int                  @default(0)
+  minutesLimit       Int                  @default(2500)
+  aiAssistantsLimit  Int                  @default(10)
+  phoneNumbersLimit  Int                  @default(5)
+  timezone           String               @default("America/New_York")
+  currency           String               @default("USD")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  // Multi-tenant relationships
+  members            OrganizationMember[]
+  assistants         Assistant[]
+  phoneNumbers       PhoneNumber[]
+  customers          Customer[]
+  leads              Lead[]
+  products           Product[]
+  knowledgeSources   KnowledgeSource[]
+  calls              Call[]
+  appointments       Appointment[]
+  followUps          FollowUp[]
+  integrations       Integration[]
+  notifications      Notification[]
+  subscriptions      Subscription[]
+  usageRecords       UsageRecord[]
+  auditLogs          AuditLog[]
+}
+
+model User {
+  id             String               @id @default(cuid())
+  email          String               @unique
+  name           String
+  phone          String?
+  avatarUrl      String?
+  firebaseUid    String?              @unique
+  emailVerified  Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  memberships    OrganizationMember[]
+  appointments   Appointment[]
+  auditLogs      AuditLog[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           Role         @default(SALES_REP)
+  title          String?
+  invitedBy      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Assistant {
+  id                     String            @id @default(cuid())
+  organizationId         String
+  name                   String
+  role                   String
+  voice                  String            @default("sarah")
+  voiceGender            String            @default("female")
+  language               String            @default("en-US")
+  accent                 String?
+  speakingSpeed          Float             @default(1.0)
+  pitch                  Float             @default(1.0)
+  personality            String            @default("High-energy consultative SDR")
+  tone                   String            @default("consultative")
+  greeting               String
+  instructions           String
+  salesObjective         String
+  qualificationQuestions Json              @default("[]")
+  callEndingBehavior     String            @default("Book demo and send calendar invitation")
+  humanHandoffRules      String            @default("Transfer to rep immediately when requested or high-intent")
+  assignedPhoneNumberId  String?
+  isActive               Boolean           @default(true)
+  knowledgeSourceIds     Json              @default("[]")
+  productIds             Json              @default("[]")
+  callsHandled           Int               @default(0)
+  avgRating              Float             @default(4.9)
+  conversionRate         Float             @default(44.0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calls                  Call[]
+  phoneNumbers           PhoneNumber[]
+
+  @@index([organizationId])
+}
+
+model PhoneNumber {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  number              String       @unique
+  formattedNumber     String
+  countryCode         String       @default("US")
+  provider            String       @default("twilio") // twilio, telnyx, vonage, sip
+  status              String       @default("active")
+  assignedAssistantId String?
+  forwardingNumber    String?
+  monthlyCost         Float        @default(15.0)
+  type                String       @default("local")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assistant           Assistant?   @relation(fields: [assignedAssistantId], references: [id], onDelete: SetNull)
+  calls               Call[]
+
+  @@index([organizationId])
+}
+
+model Customer {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String
+  company        String?
+  jobTitle       String?
+  industry       String?
+  notes          String?
+  lifetimeValue  Float         @default(0.0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads          Lead[]
+  calls          Call[]
+  appointments   Appointment[]
+
+  @@index([organizationId])
+}
+
+model Lead {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  customerId         String?
+  name               String
+  email              String
+  phone              String
+  company            String
+  score              Int           @default(70)
+  stage              LeadStage     @default(NEW)
+  source             String        @default("Inbound Voice Call")
+  budget             String?
+  authority          String?
+  need               String?
+  timeline           String?
+  interestedProduct  String?
+  estimatedValue     Float         @default(5000.0)
+  lastContactedAt    DateTime      @default(now())
+  assignedRepName    String?
+  assignedRepEmail   String?
+  notes              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer           Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  calls              Call[]
+  followUps          FollowUp[]
+
+  @@index([organizationId])
+  @@index([stage])
+}
+
+model Product {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  category       String
+  price          Float
+  pricingModel   String       @default("monthly")
+  description    String
+  features       Json         @default("[]")
+  idealCustomer  String?
+  faq            Json         @default("[]")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model KnowledgeSource {
+  id             String           @id @default(cuid())
+  organizationId String
+  title          String
+  type           String           @default("document") // document, url, faq, pdf, call_learning
+  content        String
+  tokensCount    Int              @default(0)
+  status         String           @default("synced") // synced, processing, error
+  tags           Json             @default("[]")
+  fileUrl        String?
+  version        Int              @default(1)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chunks         KnowledgeChunk[]
+
+  @@index([organizationId])
+}
+
+model KnowledgeChunk {
+  id                String          @id @default(cuid())
+  knowledgeSourceId String
+  organizationId    String
+  chunkIndex        Int
+  text              String
+  // Vector representation (pgvector 768 or 1536 float array)
+  embedding         Json?
+  tokenLength       Int
+  createdAt         DateTime        @default(now())
+
+  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([knowledgeSourceId])
+}
+
+model Call {
+  id                 String          @id @default(cuid())
+  organizationId     String
+  assistantId        String?
+  phoneNumberId      String?
+  customerId         String?
+  leadId             String?
+  callerName         String
+  callerNumber       String
+  callerCompany      String?
+  status             CallStatus      @default(COMPLETED)
+  direction          String          @default("inbound")
+  startedAt          DateTime        @default(now())
+  endedAt            DateTime?
+  durationSeconds    Int             @default(0)
+  summary            String
+  resolutionType     String          @default("autonomous_resolved") // autonomous_resolved, transferred_to_human, scheduled_callback
+  sentimentScore     Float           @default(0.85) // -1.0 to 1.0
+  buyingIntentScore  Int             @default(80)   // 0 to 100
+  aiAnalysis         Json            @default("{}")
+  handoffBrief       Json?
+  costUsd            Float           @default(0.0)
+  createdAt          DateTime        @default(now())
+
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assistant          Assistant?      @relation(fields: [assistantId], references: [id], onDelete: SetNull)
+  phoneNumber        PhoneNumber?    @relation(fields: [phoneNumberId], references: [id], onDelete: SetNull)
+  customer           Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lead               Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  recordings         CallRecording[]
+  transcripts        CallTranscript[]
+  appointments       Appointment[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model CallRecording {
+  id              String       @id @default(cuid())
+  callId          String
+  audioUrl        String
+  storagePath     String?
+  durationSeconds Int          @default(0)
+  fileSizeBytes   Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  call            Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+}
+
+model CallTranscript {
+  id             String       @id @default(cuid())
+  callId         String
+  turnIndex      Int
+  speaker        String       // "ai" | "caller" | "system" | "human_rep"
+  message        String
+  timestampMs    Int          @default(0)
+  confidence     Float        @default(0.98)
+  sentiment      String?      // "positive" | "neutral" | "negative"
+  createdAt      DateTime     @default(now())
+
+  call           Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+}
+
+model Appointment {
+  id             String       @id @default(cuid())
+  organizationId String
+  callId         String?
+  customerId     String?
+  assignedUserId String?
+  title          String
+  description    String?
+  startTime      DateTime
+  endTime        DateTime
+  googleEventId  String?
+  status         String       @default("confirmed") // confirmed, completed, cancelled, rescheduled
+  meetingLink    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  call           Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignedUser   User?        @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+}
+
+model FollowUp {
+  id             String       @id @default(cuid())
+  organizationId String
+  leadId         String?
+  title          String
+  priority       String       @default("medium") // high, medium, low
+  status         String       @default("pending") // pending, completed, cancelled
+  dueDate        DateTime
+  assignedToName String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Integration {
+  id             String            @id @default(cuid())
+  organizationId String
+  service        String            // gemini, firebase, supabase, twilio, vapi, retell, elevenlabs, resend, sendgrid, google_calendar, stripe, n8n
+  name           String
+  status         IntegrationStatus @default(CONFIG_REQUIRED)
+  config         Json              @default("{}")
+  lastTestedAt   DateTime?
+  errorMessage   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, service])
+  @@index([organizationId])
+}
+
+model Notification {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  title          String
+  message        String
+  type           String       @default("info") // info, success, warning, alert
+  read           Boolean      @default(false)
+  linkUrl        String?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Subscription {
+  id                   String       @id @default(cuid())
+  organizationId       String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?      @unique
+  stripePriceId        String?
+  plan                 PlanTier     @default(PRO)
+  status               String       @default("active") // active, trialing, past_due, canceled
+  currentPeriodStart   DateTime     @default(now())
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model UsageRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  metric         String       // voice_minutes, assistants_count, phone_numbers_count, ai_tokens
+  quantity       Int
+  recordedAt     DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([metric])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String?
+  details        Json         @default("{}")
+  ipAddress      String?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+}
