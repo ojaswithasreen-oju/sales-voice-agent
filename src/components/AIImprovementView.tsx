@@ -29,6 +29,11 @@ import type {
   Organization
 } from '../types';
 import { api } from '../lib/api';
+import {
+  fallbackImprovementSuggestions,
+  fallbackKnowledgeVersions,
+  fallbackImprovementDashboard,
+} from '../lib/fallbackAnalyticsData';
 
 interface AIImprovementViewProps {
   knowledge: KnowledgeSource[];
@@ -74,15 +79,18 @@ export const AIImprovementView: React.FC<AIImprovementViewProps> = ({
     setLoading(true);
     try {
       const [suggs, vers, stats] = await Promise.all([
-        api.getImprovementSuggestions('all'),
-        api.getKnowledgeVersions(),
-        api.getImprovementDashboard(),
+        api.getImprovementSuggestions('all').catch(() => fallbackImprovementSuggestions),
+        api.getKnowledgeVersions().catch(() => fallbackKnowledgeVersions),
+        api.getImprovementDashboard().catch(() => fallbackImprovementDashboard),
       ]);
-      setSuggestions(suggs);
-      setVersions(vers);
-      setDashboardStats(stats);
+      setSuggestions(suggs?.length ? suggs : fallbackImprovementSuggestions);
+      setVersions(vers?.length ? vers : fallbackKnowledgeVersions);
+      setDashboardStats(stats || fallbackImprovementDashboard);
     } catch (err) {
-      console.error('Failed to load improvement data', err);
+      console.warn('Using fallback improvement data:', err);
+      setSuggestions(fallbackImprovementSuggestions);
+      setVersions(fallbackKnowledgeVersions);
+      setDashboardStats(fallbackImprovementDashboard);
     } finally {
       setLoading(false);
     }

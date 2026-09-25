@@ -274,6 +274,11 @@ export interface CallRecord {
 }
 
 export interface CompanyConversationAnalytics {
+  dateRange?: string;
+  totalCalls?: number;
+  avgInterestScore?: number;
+  humanHandoffRate?: string;
+  qualifiedRate?: string;
   frequentlyAskedQuestions: Array<{
     question: string;
     count: number;

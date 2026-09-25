@@ -26,10 +26,14 @@ export function setApiTenantId(tenantId: string) {
   localStorage.setItem('vocalpulse_tenant_id', tenantId);
 }
 
+const VALID_TENANTS = ['org_acme_cloud', 'org_swift_logistics'];
+
 export function getApiTenantId(): string {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('vocalpulse_tenant_id');
-    if (saved) return saved;
+    if (saved && (VALID_TENANTS.includes(saved) || saved.startsWith('org_'))) {
+      return saved;
+    }
   }
   return currentTenantId;
 }

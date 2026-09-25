@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { CallRecord, Lead, Assistant, CompanyConversationAnalytics } from '../types';
 import { api } from '../lib/api';
+import { fallbackConversationAnalytics } from '../lib/fallbackAnalyticsData';
 
 interface AnalyticsViewProps {
   calls: CallRecord[];
@@ -47,7 +48,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     setLoading(true);
     api.getConversationAnalytics({ dateRange: timeRange })
       .then((data) => setAnalyticsData(data))
-      .catch((err) => console.error('Failed to load conversation analytics', err))
+      .catch((err) => {
+        console.warn('Using fallback conversation analytics:', err);
+        setAnalyticsData(fallbackConversationAnalytics);
+      })
       .finally(() => setLoading(false));
   }, [timeRange]);
 
